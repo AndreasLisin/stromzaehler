@@ -83,6 +83,8 @@ table.t th{font-size:12px;white-space:nowrap;color:var(--text-dim);font-weight:6
 table.t td{text-align:right;white-space:nowrap;padding:8px 4px;border-bottom:1px solid var(--rand)}
 table.t th:first-child,table.t td:first-child{text-align:left}
 table.t tr.sum td{font-weight:700;border-top:2px solid var(--rand-hell)}
+table.cmp td,table.cmp th{padding:6px 3px;line-height:1.2} table.cmp td:first-child{white-space:normal;min-width:64px}
+.cmpd{font-size:12px;font-weight:600;margin-top:2px;color:var(--text-dim)} .cmpd.pos{color:#fca5a5} .cmpd.neg{color:#86efac}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .chip{min-height:40px;padding:6px 14px;border-radius:999px;border:2px solid var(--rand-hell);background:transparent;font-weight:600;cursor:pointer}
 .chip.off{opacity:.45;border-style:dashed}
@@ -758,45 +760,69 @@ function viewAuswertung() {
     <div class="card"><div class="lbl">Ø pro Woche / Monat</div><div class="kpi">${fmtN(avg * 7, 0)} / ${fmtN(avg * 30.44, 0)}</div><div class="dim">kWh</div></div></div>`;
   h += `<div class="card"><div class="lbl">Verbrauch je Monat</div><div class="chartbox"><canvas id="chM"></canvas></div><div class="dim" style="margin-top:6px">Blasse Balken = geschätzt (Lücke über 3 Wochen) oder Monat unvollständig. Tippen zeigt Werte.</div></div>`;
   h += `<div class="card"><div class="lbl">Verbrauch je Kalenderwoche</div><div class="chartbox"><canvas id="chW"></canvas></div><div class="dim" style="margin-top:6px">Nur vollständige Wochen. Gestrichelt = geschätzt. KW nach ISO 8601.</div></div>`;
-  h += `<div class="card"><div class="lbl">Vergleich ${cy} mit ${cy - 1}</div><div class="seg"><button class="${S.cmpMode === 'monat' ? 'on' : ''}" data-act="cmp" data-m="monat">Monate</button><button class="${S.cmpMode === 'kw' ? 'on' : ''}" data-act="cmp" data-m="kw">Kalenderwochen</button></div>${cmpTable(M, cy)}</div>`;
+  const cyc = cmpYears(M, cy);
+  h += `<div class="card"><div class="lbl">Vergleich ${cyc.length > 1 ? cyc[cyc.length - 1] + '–' + cyc[0] : cy}</div><div class="seg"><button class="${S.cmpMode === 'monat' ? 'on' : ''}" data-act="cmp" data-m="monat">Monate</button><button class="${S.cmpMode === 'kw' ? 'on' : ''}" data-act="cmp" data-m="kw">Kalenderwochen</button></div>${cmpTable(M, cy)}</div>`;
   h += `<div class="card"><div class="lbl">Jahre</div><table class="t"><tr><th>Jahr</th><th>kWh</th><th>Tage</th><th>Ø/Tag</th><th>geschätzt</th></tr>
     ${years.slice().reverse().map((y) => { const Y = M.agg.years[y]; return `<tr><td>${y}</td><td>${fmtN(Y.kwh, 0)}</td><td>${fmtN(Y.cov, 0)}</td><td>${fmtN(Y.kwh / Y.cov, 1)}</td><td>${Y.kwh ? fmtN((Y.est / Y.kwh) * 100, 0) + ' %' : '–'}</td></tr>`; }).join('')}</table>
     <div class="dim" style="margin-top:6px">„Tage“ = Tage mit Ablesedaten. Teiljahre sind nicht hochgerechnet.</div></div>`;
   h += costSection(M, cy);
   return h;
 }
+const CMP_YEARS = 4; // so viele Jahre stehen nebeneinander in der Vergleichstabelle
+function cmpYears(M, cy) {
+  // die letzten 4 Jahre mit Daten, ausgeblendete Jahre (Chips) bleiben draußen
+  return Object.keys(M.agg.years).map(Number).filter((y) => y <= cy && !S.hiddenYears.has(y)).sort((a, b) => b - a).slice(0, CMP_YEARS);
+}
 function cmpTable(M, cy) {
   const pts = M.pts, last = M.pts[M.pts.length - 1].t;
+  const cols = cmpYears(M, cy);
+  if (!cols.length) return '<div class="dim">Alle Jahre ausgeblendet – oben ein Jahr antippen.</div>';
+  const need = [...new Set(cols.flatMap((y) => [y, y - 1]))]; // Vorjahr immer mitrechnen, auch wenn ausgeblendet
   const rows = [];
   if (S.cmpMode === 'monat') {
     for (let m = 1; m <= 12; m++) {
       const a = bLocalToMs(cy, m, 1);
       if (a > last) break;
-      const b = Math.min(bLocalToMs(m === 12 ? cy + 1 : cy, m === 12 ? 1 : m + 1, 1), last);
-      const partial = b === last && b < bLocalToMs(m === 12 ? cy + 1 : cy, m === 12 ? 1 : m + 1, 1);
-      rows.push({ label: MONATE[m - 1] + (partial ? ' (bis ' + bParts(last).d + '.)' : ''), cur: rangeKwh(pts, a, b), prev: rangeKwh(pts, shiftYear(a, -1), shiftYear(b, -1)) });
+      const fullB = bLocalToMs(m === 12 ? cy + 1 : cy, m === 12 ? 1 : m + 1, 1);
+      const b = Math.min(fullB, last);
+      const v = {};
+      for (const y of need) v[y] = rangeKwh(pts, shiftYear(a, y - cy), shiftYear(b, y - cy));
+      rows.push({ label: MONATE[m - 1] + (b < fullB ? ' (bis ' + bParts(last).d + '.)' : ''), v });
     }
   } else {
-    const nw = weeksInYear(cy);
-    for (let w = 1; w <= nw; w++) {
+    for (let w = 1; w <= weeksInYear(cy); w++) {
       const sk = isoWeekStartKey(cy, w);
       const a = dayStart(sk);
       if (a > last) break;
       const fullB = dayStart(addDays(sk, 7));
-      const b = Math.min(fullB, last);
-      const dur = b - a;
-      let prev = null;
-      if (w <= weeksInYear(cy - 1)) { const pa = dayStart(isoWeekStartKey(cy - 1, w)); prev = rangeKwh(pts, pa, pa + dur); }
-      rows.push({ label: 'KW ' + w + (b < fullB ? ' (lfd.)' : ''), cur: rangeKwh(pts, a, b), prev });
+      const dur = Math.min(fullB, last) - a;
+      const v = {};
+      for (const y of need) { if (w > weeksInYear(y)) { v[y] = null; continue; } const ya = dayStart(isoWeekStartKey(y, w)); v[y] = rangeKwh(pts, ya, ya + dur); }
+      rows.push({ label: 'KW ' + w + (a + dur < fullB ? ' (lfd.)' : ''), v });
     }
   }
-  const sumC = rows.reduce((s, r) => s + (r.cur != null && r.prev != null ? r.cur : 0), 0);
-  const sumP = rows.reduce((s, r) => s + (r.cur != null && r.prev != null ? r.prev : 0), 0);
-  const tr = (l, c, p, cls = '') => { const d = c != null && p != null ? c - p : null; const pc = d != null && p ? d / p : null; const col = d == null ? '' : d <= 0 ? 'neg' : 'pos'; return `<tr class="${cls}"><td>${l}</td><td>${fmtN(c, 1)}</td><td>${fmtN(p, 1)}</td><td class="${col}">${d == null ? '–' : (d > 0 ? '+' : '') + fmtN(d, 1)}</td><td class="${col}">${fmtPct(pc)}</td></tr>`; };
-  return `<div style="overflow-x:auto"><table class="t"><tr><th>Zeitraum</th><th>${cy}</th><th>${cy - 1}</th><th>Δ kWh</th><th>Δ %</th></tr>
-    ${rows.slice().reverse().map((r) => tr(r.label, r.cur, r.prev)).join('')}
-    ${tr('Summe (vergleichbar)', sumP ? sumC : null, sumP || null, 'sum')}</table></div>
-    <div class="dim" style="margin-top:6px">Grün = weniger, rot = mehr Verbrauch als im Vorjahr. Laufende Zeiträume werden mit derselben Zeitspanne im Vorjahr verglichen.</div>`;
+  // Zelle: kWh + darunter Δ % zum jeweiligen Vorjahr (grün = weniger, rot = mehr)
+  const pct = (c, p) => (c != null && p ? (c - p) / p : null);
+  const cell = (c, pc, text) => {
+    const col = pc == null ? '' : pc <= 0 ? 'neg' : 'pos';
+    return `<td>${fmtN(c, 1)}<div class="cmpd ${col}">${text || (pc == null ? '&nbsp;' : fmtPct(pc))}</div></td>`;
+  };
+  // Summe von Jahr y über die Zeiträume, in denen auch Jahr w Daten hat
+  const sum = (y, w) => rows.reduce((s, r) => s + (r.v[y] != null && r.v[w] != null ? r.v[y] : 0), 0);
+  const nCur = rows.filter((r) => r.v[cy] != null).length;
+  const sumCells = cols.map((y) => {
+    const n = rows.filter((r) => r.v[y] != null && r.v[cy] != null).length;
+    if (!n) return '<td>–<div class="cmpd">&nbsp;</div></td>';
+    const total = sum(y, cy); // gleiche Zeiträume wie im aktuellen Jahr
+    if (n < nCur) return cell(total, null, `nur ${n} ${S.cmpMode === 'monat' ? 'Mon.' : 'KW'}`);
+    // Δ nur, wenn das Vorjahr für alle diese Zeiträume Daten hat – sonst wäre die Prozentzahl irreführend
+    const nP = rows.filter((r) => r.v[y] != null && r.v[cy] != null && r.v[y - 1] != null).length;
+    return cell(total, nP === n ? pct(total, sum(y - 1, cy)) : null);
+  });
+  return `<div style="overflow-x:auto"><table class="t cmp"><tr><th>Zeitraum</th>${cols.map((y) => `<th style="color:${yearColor(Object.keys(M.agg.years).map(Number), y)}">${y}</th>`).join('')}</tr>
+    ${rows.slice().reverse().map((r) => `<tr><td>${r.label}</td>${cols.map((y) => cell(r.v[y], pct(r.v[y], r.v[y - 1]))).join('')}</tr>`).join('')}
+    <tr class="sum"><td>Summe</td>${sumCells.join('')}</tr></table></div>
+    <div class="dim" style="margin-top:6px">Kleine Zahl = Veränderung zum jeweiligen Vorjahr: grün = weniger, rot = mehr Verbrauch. Laufende Zeiträume werden mit derselben Zeitspanne der Vorjahre verglichen. Jahre oben antippen blendet sie aus.</div>`;
 }
 function costSection(M, cy) {
   if (!M.tarife.length) return `<div class="card"><div class="lbl">Kosten</div><div class="dim">Noch kein Tarif hinterlegt. <button class="btn sm" data-act="tab" data-tab="einstellungen">Tarif anlegen</button></div></div>`;
