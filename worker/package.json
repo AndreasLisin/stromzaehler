@@ -1,0 +1,10 @@
+{
+  "name": "stromzaehler-api",
+  "private": true,
+  "type": "module",
+  "description": "Stromzähler – Cloudflare Worker (API). Keine Abhängigkeiten; wrangler wird per npx geladen.",
+  "scripts": {
+    "test": "node test/api-test.mjs && node test/calc-test.mjs",
+    "dev": "node test/dev-server.mjs --db ../.lokal/test.sqlite --ki-attrappe"
+  }
+}

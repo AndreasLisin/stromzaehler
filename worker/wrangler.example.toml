@@ -1,0 +1,24 @@
+# Beispiel-Konfiguration – OHNE echte Werte.
+# Das Einrichtungsskript (node scripts/einrichten.mjs) erzeugt daraus wrangler.toml
+# und trägt die database_id ein. wrangler.toml steht in .gitignore.
+name = "stromzaehler-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+# Nur von dieser Adresse werden Anfragen angenommen (CORS). Mehrere mit Komma trennen.
+ALLOWED_ORIGINS = "https://andreaslisin.github.io"
+# Bildmodell für die Zählerstand-Erkennung (Apache-2.0-Lizenz, keine EU-Einschränkung)
+AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stromzaehler"
+database_id = "HIER-DATABASE-ID-EINTRAGEN"
+
+[ai]
+binding = "AI"
+
+[observability]
+enabled = true

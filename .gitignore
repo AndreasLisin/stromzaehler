@@ -1,0 +1,31 @@
+# Stromzähler – niemals ins (öffentliche) Repository:
+# lokale Cloudflare-Konfiguration (enthält die Datenbank-ID)
+worker/wrangler.toml
+worker/.dev.vars
+.dev.vars
+.env
+.env.*
+*.pem
+*.key
+# lokale Laufzeit-/Testdaten
+.wrangler/
+worker/.wrangler/
+node_modules/
+.lokal/
+*.sqlite
+*.sqlite-*
+*.db
+# Sicherungen und Exporte (enthalten echte Daten und Fotos)
+Stromzaehler_Sicherung_*.json
+Stromzaehler_Ablesungen_*.csv
+Sicherungen/
+*.jpg
+*.jpeg
+*.heic
+# Dateien für das private OneDrive (gehören nicht ins Repository)
+Fuer_OneDrive/
+# Editor/Tools
+.claude/
+.vscode/
+.DS_Store
+Thumbs.db

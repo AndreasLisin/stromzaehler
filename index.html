@@ -1,0 +1,1503 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1621">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stromzähler">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https://*.workers.dev http://localhost:* http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
+<title>Stromzähler</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD" crossorigin="anonymous" defer></script>
+<style>
+:root{
+  --bg:#0e1621; --panel:#16202e; --panel-2:#1b2634; --feld:#101825;
+  --rand:#2a3646; --rand-hell:#35455a;
+  --text:#e6ebf2; --text-dim:#8a97a8;
+  --akzent:#3b82f6; --rot:#ef4444; --gelb:#f59e0b; --gruen:#22c55e;
+  --tabh:64px; --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--rand);padding:calc(8px + var(--safe-t)) 16px 8px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:17px;margin:0;font-weight:650;white-space:nowrap}
+.top h1 b{color:var(--akzent)}
+.top select{flex:1;min-width:0;background:var(--feld);border:1px solid var(--rand-hell);border-radius:8px;padding:6px 8px;font-size:14px}
+.dot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--gruen)}
+.dot.warte{background:var(--gelb)} .dot.off{background:#6b7280} .dot.err{background:var(--rot)}
+main{max-width:640px;margin:0 auto;padding:14px 16px calc(var(--tabh) + var(--safe-b) + 24px)}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--rand);display:flex;padding-bottom:var(--safe-b)}
+.tabs button{flex:1;height:var(--tabh);background:none;border:0;color:var(--text-dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;cursor:pointer}
+.tabs button svg{width:24px;height:24px}
+.tabs button.on{color:var(--akzent)}
+.card{background:var(--panel);border:1px solid var(--rand);border-radius:10px;padding:14px;margin:0 0 12px}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);border-left:3px solid var(--akzent);padding-left:8px;margin-bottom:8px}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.big small{font-size:18px;color:var(--text-dim);font-weight:500}
+.kpi{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.dim{color:var(--text-dim);font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid2 .card{margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 16px;border-radius:10px;border:1px solid var(--rand-hell);background:var(--panel-2);cursor:pointer;font-weight:600;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn.p{background:var(--akzent);border-color:var(--akzent);color:#fff}
+.btn.d{background:transparent;border-color:var(--rot);color:#fca5a5}
+.btn.xl{width:100%;min-height:76px;font-size:21px;border-radius:14px;margin:0 0 12px}
+.btn.full{width:100%}
+.btn.sm{min-height:38px;padding:6px 12px;font-size:14px}
+.btn[disabled]{opacity:.5}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.btn{flex:1 1 140px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.pill.g{background:rgba(34,197,94,.15);color:#86efac} .pill.r{background:rgba(239,68,68,.15);color:#fca5a5}
+.pill.y{background:rgba(245,158,11,.15);color:#fcd34d} .pill.b{background:rgba(59,130,246,.15);color:#93c5fd} .pill.n{background:var(--panel-2);color:var(--text-dim)}
+.pos{color:#fca5a5} .neg{color:#86efac}
+.banner{border-radius:10px;padding:12px 14px;margin:0 0 12px;font-size:15px}
+.banner.y{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4)}
+.banner.r{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4)}
+.banner.b{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4)}
+.list .yr{font-size:13px;color:var(--text-dim);text-transform:uppercase;margin:16px 0 6px;letter-spacing:.05em}
+.item{display:flex;justify-content:space-between;gap:10px;padding:12px 4px;border-bottom:1px solid var(--rand);cursor:pointer}
+.item:active{background:var(--panel-2)}
+.item .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.item .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .bd{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+label.f{display:block;margin:0 0 12px;font-size:14px;color:var(--text-dim)}
+label.f>span{display:block;margin-bottom:4px}
+input.i,select.i,textarea.i{width:100%;background:var(--feld);border:1px solid var(--rand-hell);border-radius:8px;padding:11px 12px;color:var(--text);min-height:48px}
+input.i:focus,select.i:focus,textarea.i:focus{outline:none;border-color:var(--akzent);box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+input.num{font-size:30px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.chk{display:flex;gap:10px;align-items:center;margin:0 0 12px;min-height:44px}
+.chk input{width:22px;height:22px}
+table.t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.t th{font-size:12px;white-space:nowrap;color:var(--text-dim);font-weight:600;text-align:right;padding:6px 4px;border-bottom:1px solid var(--rand)}
+table.t td{text-align:right;white-space:nowrap;padding:8px 4px;border-bottom:1px solid var(--rand)}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t tr.sum td{font-weight:700;border-top:2px solid var(--rand-hell)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.chip{min-height:40px;padding:6px 14px;border-radius:999px;border:2px solid var(--rand-hell);background:transparent;font-weight:600;cursor:pointer}
+.chip.off{opacity:.45;border-style:dashed}
+.chartbox{position:relative;height:260px}
+.seg{display:flex;background:var(--feld);border:1px solid var(--rand-hell);border-radius:10px;padding:3px;margin:0 0 10px}
+.seg button{flex:1;min-height:38px;border:0;background:none;border-radius:8px;color:var(--text-dim);font-weight:600}
+.seg button.on{background:var(--panel-2);color:var(--text)}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(5,10,18,.72);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--panel);border:1px solid var(--rand);border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:94vh;overflow:auto;padding:16px 16px calc(16px + var(--safe-b))}
+.sheet h2{margin:2px 0 14px;font-size:20px}
+@media(min-width:700px){.modal{align-items:center}.sheet{border-radius:16px}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + var(--safe-b) + 14px);z-index:60;background:#0b1220;border:1px solid var(--rand-hell);padding:10px 16px;border-radius:10px;max-width:92vw;box-shadow:0 8px 30px rgba(0,0,0,.4);display:none}
+.toast.on{display:block}
+.cropwrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;margin:0 0 12px}
+.cropwrap canvas{display:block;width:100%;border-radius:8px;background:#000;touch-action:none}
+.code{font-family:ui-monospace,Consolas,monospace;font-size:24px;letter-spacing:.06em;background:var(--feld);border:1px dashed var(--rand-hell);border-radius:10px;padding:14px;text-align:center;word-break:break-all;user-select:all}
+.prev{max-width:100%;border-radius:8px;border:1px solid var(--rand);display:block;margin:0 0 12px}
+.warn{margin:0 0 10px;padding:10px 12px;border-radius:8px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);font-size:14px}
+.warn.r{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.45)}
+.muted{opacity:.6}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.hidden{display:none!important}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.login{max-width:440px;margin:8vh auto 0}
+details summary{cursor:pointer;color:var(--text-dim);min-height:40px;display:flex;align-items:center}
+hr{border:0;border-top:1px solid var(--rand);margin:14px 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>⚡ <b>Strom</b>zähler</h1>
+  <select id="meterSel" aria-label="Zähler wählen"></select>
+  <span id="dot" class="dot off" title="Status"></span>
+</header>
+<main id="app"></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Start</button>
+  <button data-tab="liste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Ablesungen</button>
+  <button data-tab="auswertung"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Auswertung</button>
+  <button data-tab="einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Einstellungen</button>
+</nav>
+<div id="modals"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input type="file" id="inCamera" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="inGallery" accept="image/*" class="hidden">
+<input type="file" id="inBackup" accept=".json,application/json" class="hidden">
+<input type="file" id="inCsv" accept=".csv,.txt,text/csv,text/plain" class="hidden">
+
+<script>
+'use strict';
+// ==CALC-START==
+// Reine Rechenfunktionen (ohne Browser-Abhängigkeit) – werden auch per Node getestet.
+const TZ = 'Europe/Berlin';
+const DAY = 86400000;
+const GAP_DAYS = 21; // Abstand über 3 Wochen → Werte dazwischen gelten als Schätzung
+const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const MONATE_LANG = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const _dtf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+function bParts(ms) {
+  const o = {};
+  for (const p of _dtf.formatToParts(new Date(ms))) o[p.type] = p.value;
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute, s: +o.second };
+}
+function bOffset(ms) { const p = bParts(ms); return Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - Math.floor(ms / 1000) * 1000; }
+function bLocalToMs(y, m, d, h = 0, mi = 0) {
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  let t = guess - bOffset(guess - 3600000);
+  const o = bOffset(t);
+  if (guess - o !== t) t = guess - o;
+  return t;
+}
+function key(y, m, d) { return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+function dayKeyOf(ms) { const p = bParts(ms); return key(p.y, p.m, p.d); }
+function addDays(k, n) { const [y, m, d] = k.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return key(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); }
+function daysInMonth(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+const _mid = new Map();
+function dayStart(k) { let v = _mid.get(k); if (v === undefined) { const [y, m, d] = k.split('-').map(Number); v = bLocalToMs(y, m, d); _mid.set(k, v); } return v; }
+function isoWeek(k) {
+  const [y, m, d] = k.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  const dow = (t.getUTCDay() + 6) % 7;
+  t.setUTCDate(t.getUTCDate() - dow + 3);
+  const wy = t.getUTCFullYear();
+  const f = new Date(Date.UTC(wy, 0, 4));
+  return { y: wy, w: 1 + Math.round(((t - f) / DAY - 3 + ((f.getUTCDay() + 6) % 7)) / 7) };
+}
+function weeksInYear(y) { return isoWeek(key(y, 12, 28)).w; }
+function isoWeekStartKey(wy, w) { // Montag der ISO-Woche
+  const jan4 = new Date(Date.UTC(wy, 0, 4));
+  const mon = new Date(jan4.getTime() - ((jan4.getUTCDay() + 6) % 7) * DAY + (w - 1) * 7 * DAY);
+  return key(mon.getUTCFullYear(), mon.getUTCMonth() + 1, mon.getUTCDate());
+}
+function shiftYear(ms, n) { const p = bParts(ms); return bLocalToMs(p.y + n, p.m, Math.min(p.d, daysInMonth(p.y + n, p.m)), p.h, p.mi); }
+
+// Ablesungen → kumulierte Reihe (Zählerwechsel werden durchgehend fortgeschrieben)
+function buildPoints(readings) {
+  const rs = readings.map((r) => ({ ...r, t: Date.parse(r.ts) })).filter((r) => Number.isFinite(r.t) && Number.isFinite(+r.value))
+    .sort((a, b) => a.t - b.t);
+  let offset = 0;
+  const pts = [];
+  for (const r of rs) {
+    if (r.kind === 'wechsel' && r.old_value != null && r.old_value !== '') {
+      const c = +r.old_value + offset;
+      pts.push({ t: r.t, c, r });
+      offset = c - +r.value;
+    } else pts.push({ t: r.t, c: +r.value + offset, r });
+  }
+  return pts;
+}
+function emptyAgg() { return { kwh: 0, est: 0, cov: 0, estCov: 0 }; }
+function addAgg(a, o) { a.kwh += o.kwh; a.est += o.est; a.cov += o.cov; a.estCov += o.estCov; }
+// Verbrauch zwischen zwei Ablesungen linear auf die Kalendertage (Europe/Berlin) verteilen
+function buildDays(pts) {
+  const days = new Map();
+  const intervals = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const dt = b.t - a.t;
+    if (dt <= 0) continue;
+    const dc = b.c - a.c;
+    const est = dt > GAP_DAYS * DAY;
+    const neg = dc < -1e-9;
+    intervals.push({ t0: a.t, t1: b.t, c0: a.c, c1: b.c, est, neg });
+    if (neg) continue;
+    let k = dayKeyOf(a.t);
+    for (;;) {
+      const s = dayStart(k);
+      if (s >= b.t) break;
+      const e = dayStart(addDays(k, 1));
+      const ov = Math.min(e, b.t) - Math.max(s, a.t);
+      if (ov > 0) {
+        let o = days.get(k);
+        if (!o) { o = emptyAgg(); days.set(k, o); }
+        const part = (dc * ov) / dt, frac = ov / (e - s);
+        o.kwh += part; o.cov += frac;
+        if (est) { o.est += part; o.estCov += frac; }
+      }
+      k = addDays(k, 1);
+    }
+  }
+  return { days, intervals };
+}
+function aggregate(days) {
+  const years = {}, weeks = {};
+  for (const [k, o] of days) {
+    const y = +k.slice(0, 4), m = +k.slice(5, 7);
+    const Y = years[y] || (years[y] = { ...emptyAgg(), months: Array.from({ length: 12 }, emptyAgg) });
+    addAgg(Y, o); addAgg(Y.months[m - 1], o);
+    const w = isoWeek(k);
+    const W = weeks[w.y] || (weeks[w.y] = {});
+    addAgg(W[w.w] || (W[w.w] = emptyAgg()), o);
+  }
+  return { years, weeks };
+}
+// Kumulierter Stand zu beliebigem Zeitpunkt (linear interpoliert), null außerhalb der Ablesungen
+function cumAt(pts, ms) {
+  if (!pts.length || ms < pts[0].t - 1000 || ms > pts[pts.length - 1].t + 1000) return null;
+  if (ms <= pts[0].t) return pts[0].c;
+  let lo = 0, hi = pts.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid].t <= ms) lo = mid; else hi = mid; }
+  const a = pts[lo], b = pts[hi];
+  if (ms >= b.t) return b.c;
+  return a.c + ((b.c - a.c) * (ms - a.t)) / (b.t - a.t);
+}
+function rangeKwh(pts, a, b) { const x = cumAt(pts, a), y = cumAt(pts, b); return x == null || y == null ? null : y - x; }
+function avgPerDay(pts, days = 365) {
+  if (pts.length < 2) return null;
+  const last = pts[pts.length - 1].t;
+  const from = Math.max(pts[0].t, last - days * DAY);
+  const dtd = (last - from) / DAY;
+  return dtd > 0.5 ? rangeKwh(pts, from, last) / dtd : null;
+}
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+// Hochrechnung für ein Kalenderjahr
+function projectYear(pts, year) {
+  if (pts.length < 2) return null;
+  const first = pts[0].t, last = pts[pts.length - 1].t;
+  const ys = bLocalToMs(year, 1, 1), ye = bLocalToMs(year + 1, 1, 1);
+  if (last < ys) return null;
+  if (last >= ye && first <= ys) return { sofar: rangeKwh(pts, ys, ye), rest: 0, vorher: 0, total: rangeKwh(pts, ys, ye), methode: 'vollständig abgelesen', bis: ye };
+  const start = Math.max(ys, first);
+  const end = Math.min(last, ye);
+  const sofar = rangeKwh(pts, start, end);
+  const avg = avgPerDay(pts) || 0;
+  let rest = 0, methode = 'Ø der letzten 365 Tage';
+  if (end < ye) {
+    const prevRest = rangeKwh(pts, shiftYear(end, -1), ys);
+    const prevSofar = rangeKwh(pts, shiftYear(start, -1), shiftYear(end, -1));
+    if (prevRest != null && prevSofar > 0) {
+      rest = prevRest * clamp(sofar / prevSofar, 0.5, 2);
+      methode = 'Vorjahresverlauf, angepasst an den bisherigen Verbrauch';
+    } else rest = (avg * (ye - end)) / DAY;
+  }
+  const vorher = start > ys ? (avg * (start - ys)) / DAY : 0;
+  return { sofar, rest, vorher, total: sofar + rest + vorher, methode, bis: end };
+}
+// geschätzter Tagesverbrauch für Tage ohne Ablesung (Vorjahres-Tag, sonst Durchschnitt)
+function estDay(days, k, avg, factor) {
+  const [y, m, d] = k.split('-').map(Number);
+  const pk = key(y - 1, m, Math.min(d, daysInMonth(y - 1, m)));
+  const p = days.get(pk);
+  if (p && p.cov > 0.99) return p.kwh * factor;
+  return avg;
+}
+function tariffAt(tariffs, k) {
+  let best = null;
+  for (const t of tariffs) if (t.valid_from <= k && (!best || t.valid_from > best.valid_from)) best = t;
+  return best;
+}
+// Kosten je Monat: Arbeitspreis × kWh + Grundpreis anteilig nach erfassten Tagen
+function costByMonth(days, tariffs, year) {
+  const months = Array.from({ length: 12 }, () => ({ kwh: 0, arbeit: 0, grund: 0, abschlag: 0, cov: 0, ohneTarif: 0 }));
+  if (!tariffs.length) return null;
+  for (let m = 1; m <= 12; m++) {
+    const M = months[m - 1];
+    for (let d = 1; d <= daysInMonth(year, m); d++) {
+      const k = key(year, m, d);
+      const t = tariffAt(tariffs, k);
+      const o = days.get(k);
+      if (t) M.abschlag += t.abschlag_monat / daysInMonth(year, m);
+      if (!o) continue;
+      if (!t) { M.ohneTarif += o.kwh; continue; }
+      M.kwh += o.kwh; M.cov += o.cov;
+      M.arbeit += (o.kwh * t.arbeitspreis_ct) / 100;
+      M.grund += (t.grundpreis_monat * o.cov) / daysInMonth(year, m);
+    }
+    M.summe = M.arbeit + M.grund;
+  }
+  return months;
+}
+// Prognose Nachzahlung/Guthaben zum Abrechnungsstichtag (Stichtag "MM-TT", Zeitraum endet am Stichtag)
+function billing(pts, days, tariffs, stichtag, nowMs) {
+  if (!tariffs.length || pts.length < 2) return null;
+  const today = dayKeyOf(nowMs);
+  const [sm, sd] = (stichtag || '12-31').split('-').map(Number);
+  const ty = +today.slice(0, 4);
+  let endKey = key(ty, sm, Math.min(sd, daysInMonth(ty, sm)));
+  if (endKey < today) endKey = key(ty + 1, sm, Math.min(sd, daysInMonth(ty + 1, sm)));
+  const ey = +endKey.slice(0, 4);
+  const startKey = addDays(key(ey - 1, sm, Math.min(sd, daysInMonth(ey - 1, sm))), 1);
+  const avg = avgPerDay(pts) || 0;
+  const last = pts[pts.length - 1].t;
+  // Faktor: Verbrauch der letzten 90 Tage gegenüber Vorjahr
+  const a90 = rangeKwh(pts, last - 90 * DAY, last), p90 = rangeKwh(pts, shiftYear(last - 90 * DAY, -1), shiftYear(last, -1));
+  const factor = a90 != null && p90 > 0 ? clamp(a90 / p90, 0.5, 2) : 1;
+  let kwhIst = 0, kwhProg = 0, kosten = 0, abschlaege = 0, ohneTarif = false;
+  for (let k = startKey; k <= endKey; k = addDays(k, 1)) {
+    const t = tariffAt(tariffs, k) || null;
+    const y = +k.slice(0, 4), m = +k.slice(5, 7);
+    const o = days.get(k);
+    const ist = o ? o.kwh : 0;
+    const cov = o ? Math.min(1, o.cov) : 0;
+    const prog = (1 - cov) * estDay(days, k, avg, factor);
+    kwhIst += ist; kwhProg += prog;
+    if (!t) { ohneTarif = true; continue; }
+    kosten += ((ist + prog) * t.arbeitspreis_ct) / 100 + t.grundpreis_monat / daysInMonth(y, m);
+    abschlaege += t.abschlag_monat / daysInMonth(y, m);
+  }
+  return { startKey, endKey, kwhIst, kwhProg, kwh: kwhIst + kwhProg, kosten, abschlaege, saldo: kosten - abschlaege, ohneTarif };
+}
+// Plausibilitätsprüfung einer neuen/geänderten Ablesung
+function checkReading(readings, cand) {
+  const w = [];
+  const t = Date.parse(cand.ts);
+  const others = readings.filter((r) => r.id !== cand.id).map((r) => ({ ...r, t: Date.parse(r.ts) })).sort((a, b) => a.t - b.t);
+  let prev = null, next = null;
+  for (const r of others) { if (r.t < t) prev = r; else if (r.t > t && !next) next = r; }
+  const same = others.find((r) => Math.abs(r.t - t) < 60000);
+  if (same) w.push({ typ: 'doppelt', text: 'Zur gleichen Minute gibt es schon eine Ablesung (' + same.value + ').' });
+  const v = +cand.value;
+  if (cand.kind !== 'wechsel') {
+    if (prev && v < +prev.value - 1e-6) w.push({ typ: 'kleiner', rot: true, text: 'Der Stand ist kleiner als die vorherige Ablesung (' + fmtN(+prev.value, 1) + ' am ' + fmtDate(prev.t) + '). Lesefehler oder Zählerwechsel?' });
+  } else if (prev && +cand.old_value < +prev.value - 1e-6) {
+    w.push({ typ: 'kleiner', rot: true, text: 'Der Endstand des alten Zählers ist kleiner als die vorherige Ablesung (' + fmtN(+prev.value, 1) + ').' });
+  }
+  if (next && next.kind !== 'wechsel' && +next.value < v - 1e-6) w.push({ typ: 'groesser', rot: true, text: 'Der Stand ist größer als die folgende Ablesung (' + fmtN(+next.value, 1) + ' am ' + fmtDate(next.t) + ').' });
+  const pts = buildPoints(others);
+  const avg = avgPerDay(pts, 3650);
+  if (prev && avg > 0) {
+    const endV = cand.kind === 'wechsel' ? +cand.old_value : v;
+    const dd = Math.max(1, (t - prev.t) / DAY);
+    const rate = (endV - +prev.value) / dd;
+    if (rate > 3 * avg) w.push({ typ: 'hoch', text: 'Ungewöhnlich hoher Verbrauch: ' + fmtN(rate, 1) + ' kWh/Tag seit der letzten Ablesung (Ø ' + fmtN(avg, 1) + ' kWh/Tag, mehr als das Dreifache). Speichern ist trotzdem möglich.' });
+  }
+  if (prev && t - prev.t > GAP_DAYS * DAY) w.push({ typ: 'luecke', info: true, text: 'Seit der letzten Ablesung sind ' + Math.round((t - prev.t) / DAY) + ' Tage vergangen. Die Werte dazwischen werden als Schätzung gekennzeichnet.' });
+  if (t > Date.now() + 10 * 60000) w.push({ typ: 'zukunft', rot: true, text: 'Datum liegt in der Zukunft.' });
+  return w;
+}
+// Formatierung (deutsch)
+const _nf = {};
+function fmtN(x, d = 1) { if (x == null || !Number.isFinite(x)) return '–'; const f = _nf[d] || (_nf[d] = new Intl.NumberFormat('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d })); return f.format(Math.abs(x) < 0.5 * 10 ** -d ? 0 : x); }
+function fmtKwh(x, d = 1) { return x == null ? '–' : fmtN(x, d) + ' kWh'; }
+function fmtEur(x) { return x == null || !Number.isFinite(x) ? '–' : fmtN(x, 2) + ' €'; }
+function fmtPct(x) { return x == null || !Number.isFinite(x) ? '–' : (x > 0 ? '+' : '') + fmtN(x * 100, 1) + ' %'; }
+function fmtDate(ms) { const p = bParts(ms); return String(p.d).padStart(2, '0') + '.' + String(p.m).padStart(2, '0') + '.' + p.y; }
+function fmtTime(ms) { const p = bParts(ms); return String(p.h).padStart(2, '0') + ':' + String(p.mi).padStart(2, '0'); }
+function fmtDT(ms) { return fmtDate(ms) + ' ' + fmtTime(ms); }
+function fmtKey(k) { return k.slice(8, 10) + '.' + k.slice(5, 7) + '.' + k.slice(0, 4); }
+function parseDe(s) {
+  if (s == null) return null;
+  let x = String(s).trim().replace(/\s|kwh/gi, '');
+  if (!x) return null;
+  if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, '');
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+// Demo-Daten: 3 Jahre erfundener Verbrauch (***TEST***), deterministisch
+function genDemo(meterId, nowMs) {
+  let seed = 20231002;
+  const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const startK = '2023-10-02';
+  const endK = dayKeyOf(nowMs - DAY);
+  const daily = new Map();
+  for (let k = startK; k <= endK; k = addDays(k, 1)) {
+    const [y, m, d] = k.split('-').map(Number);
+    const doy = (Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / DAY;
+    daily.set(k, (8.6 + 3.4 * Math.cos((2 * Math.PI * (doy - 12)) / 365.25)) * (0.82 + 0.36 * rnd()) + (k >= '2025-01-01' ? -0.6 : 0));
+  }
+  const cumAtMs = (ms) => { // Simulierter Verbrauch seit Start
+    let c = 0;
+    for (let k = startK; ; k = addDays(k, 1)) {
+      const s = dayStart(k), e = dayStart(addDays(k, 1));
+      if (e <= ms) { c += daily.get(k) || 0; continue; }
+      if (s < ms) c += ((daily.get(k) || 0) * (ms - s)) / (e - s);
+      return c;
+    }
+  };
+  const base = 31250.0, wechselK = '2025-03-14', neuStart = 0;
+  let k = startK, n = 0, wechselDone = false;
+  const out = [];
+  const lastAllowed = nowMs - DAY;
+  while (k <= endK) {
+    const [y, m, d] = k.split('-').map(Number);
+    let ts = bLocalToMs(y, m, d, 7 + Math.floor(rnd() * 14), Math.floor(rnd() * 60));
+    if (ts > lastAllowed) break;
+    const c = cumAtMs(ts);
+    if (!wechselDone && k >= wechselK) {
+      ts = bLocalToMs(2025, 3, 14, 10, 15);
+      const cw = cumAtMs(ts);
+      out.push({ id: 'demo-' + (++n), meter_id: meterId, ts: new Date(ts).toISOString(), kind: 'wechsel', old_value: Math.round((base + cw) * 10) / 10, value: neuStart, source: 'demo', note: '***TEST*** Zählerwechsel', created_by: '***TEST*** Demo' });
+      wechselDone = true;
+      k = addDays('2025-03-14', 6);
+      continue;
+    }
+    const value = wechselDone ? neuStart + (c - cumAtMs(bLocalToMs(2025, 3, 14, 10, 15))) : base + c;
+    out.push({ id: 'demo-' + (++n), meter_id: meterId, ts: new Date(ts).toISOString(), kind: 'normal', value: Math.round(value * 10) / 10, source: 'demo', note: '***TEST***', created_by: '***TEST*** Demo' });
+    k = k >= '2025-06-20' && k < '2025-08-01' ? '2025-08-04' : addDays(k, 5 + Math.floor(rnd() * 5)); // Urlaubslücke ≈ 6 Wochen
+  }
+  return out;
+}
+// ==CALC-END==
+
+// ---------------------------------------------------------------- Speicher & API
+const DEFAULT_API = 'https://stromzaehler-api.DEIN-NAME.workers.dev'; // nach dem Veröffentlichen eintragen (keine Geheimnisse!)
+const LS = {
+  get(k, d = null) { try { const v = localStorage.getItem('sz_' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('sz_' + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem('sz_' + k); } catch {} },
+};
+const idb = {
+  _db: null, _mem: new Map(),
+  open() {
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((res) => {
+      try {
+        const r = indexedDB.open('stromzaehler', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => { this._db = r.result; res(this._db); };
+        r.onerror = () => res(null);
+      } catch { res(null); }
+    });
+  },
+  async get(k) {
+    const db = await this.open();
+    if (!db) return this._mem.get(k);
+    return new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); });
+  },
+  async set(k, v) {
+    const db = await this.open();
+    if (!db) { this._mem.set(k, v); return; }
+    return new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => res(); });
+  },
+};
+function apiBase() {
+  const o = LS.get('api');
+  if (o) return o.replace(/\/+$/, '');
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return 'http://127.0.0.1:8787';
+  return DEFAULT_API;
+}
+class ApiError extends Error { constructor(msg, status, network) { super(msg); this.status = status; this.network = network; } }
+async function api(method, path, body, timeoutMs = 20000) {
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), timeoutMs);
+  let r;
+  try {
+    r = await fetch(apiBase() + path, {
+      method,
+      headers: { 'content-type': 'application/json', ...(S.token ? { Authorization: 'Bearer ' + S.token } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctl.signal,
+      cache: 'no-store',
+    });
+  } catch (e) {
+    throw new ApiError('Keine Verbindung zum Server.', 0, true);
+  } finally { clearTimeout(tm); }
+  let j = null;
+  try { j = await r.json(); } catch {}
+  if (!r.ok) {
+    if (r.status === 401 && path !== '/anmelden') { onUnauthorized(); }
+    throw new ApiError((j && j.error) || 'Fehler ' + r.status, r.status, false);
+  }
+  return j;
+}
+
+// ---------------------------------------------------------------- Zustand
+const S = {
+  token: LS.get('token'), person: LS.get('person'), geraetId: LS.get('geraet'),
+  data: { zaehler: [], ablesungen: [], tarife: [], einstellungen: [] },
+  queue: [], meterId: LS.get('meter'), tab: 'start', online: navigator.onLine,
+  syncing: false, syncError: null, lastSync: null, charts: {}, hiddenYears: new Set(LS.get('hiddenYears', [])),
+  cmpMode: 'monat', version: 0, _model: null,
+};
+function uid() { return (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2)); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function setting(k) { const e = S.data.einstellungen.find((x) => x.key === k); return e ? e.value : null; }
+function meters() { return S.data.zaehler; }
+function curMeter() { return meters().find((m) => m.id === S.meterId) || meters().find((m) => !m.is_demo) || meters()[0] || null; }
+function isDemo() { const m = curMeter(); return !!(m && m.is_demo); }
+
+// Ablesungen inkl. noch nicht hochgeladener Änderungen
+function mergedReadings(meterId) {
+  let list = S.data.ablesungen.map((r) => ({ ...r }));
+  for (const op of S.queue) {
+    if (op.typ === 'create') { if (!list.some((r) => r.id === op.reading.id)) list.push({ ...op.reading, _pending: true, _fotoLokal: op.foto || null }); }
+    else if (op.typ === 'import') { for (const r of op.liste) if (!list.some((x) => x.id === r.id)) list.push({ ...r, _pending: true }); }
+    else if (op.typ === 'update') { const i = list.findIndex((r) => r.id === op.id); if (i >= 0) list[i] = { ...list[i], ...op.patch, _pending: true }; }
+    else if (op.typ === 'delete') list = list.filter((r) => r.id !== op.id);
+  }
+  return list.filter((r) => r.meter_id === meterId);
+}
+function model() {
+  const m = curMeter();
+  const sig = S.version + '|' + (m && m.id) + '|' + S.queue.length;
+  if (S._model && S._model.sig === sig) return S._model;
+  const readings = m ? mergedReadings(m.id) : [];
+  const pts = buildPoints(readings);
+  const { days, intervals } = buildDays(pts);
+  const agg = aggregate(days);
+  const tarife = m ? S.data.tarife.filter((t) => t.meter_id === m.id) : [];
+  S._model = { sig, meter: m, readings, pts, days, intervals, agg, tarife };
+  return S._model;
+}
+async function saveQueue() { await idb.set('queue', S.queue); }
+async function saveCache() { await idb.set('daten', S.data); }
+
+// ---------------------------------------------------------------- Abgleich
+async function refresh() {
+  const j = await api('GET', '/daten');
+  S.data = { zaehler: j.zaehler, ablesungen: j.ablesungen, tarife: j.tarife, einstellungen: j.einstellungen };
+  S.person = j.person; LS.set('person', j.person);
+  S.lastSync = Date.now(); S.syncError = null; S.version++;
+  await saveCache();
+}
+async function sendOp(op) {
+  if (op.typ === 'create') return api('POST', '/ablesungen', { ...op.reading, foto: op.foto || undefined }, 45000);
+  if (op.typ === 'import') return api('POST', '/ablesungen', { liste: op.liste }, 45000);
+  if (op.typ === 'update') return api('PUT', '/ablesungen/' + encodeURIComponent(op.id), op.patch);
+  if (op.typ === 'delete') return api('DELETE', '/ablesungen/' + encodeURIComponent(op.id));
+}
+async function enqueue(op) {
+  op.qid = uid(); op.erstellt = Date.now();
+  S.queue.push(op); S.version++;
+  await saveQueue();
+  render();
+  sync();
+}
+let _syncAgain = false;
+async function sync(force) {
+  if (!S.token) return;
+  if (S.syncing) { _syncAgain = true; return; }
+  S.syncing = true; renderStatus();
+  let sent = 0;
+  try {
+    for (const op of [...S.queue]) {
+      if (op.fehler && !force) continue;
+      try {
+        await sendOp(op);
+        S.queue = S.queue.filter((x) => x.qid !== op.qid); sent++;
+        await saveQueue();
+      } catch (e) {
+        if (e.network) throw e;
+        if (e.status === 401) throw e;
+        op.fehler = e.message; await saveQueue();
+      }
+    }
+    await refresh();
+    S.online = true;
+  } catch (e) {
+    S.syncError = e.message;
+    if (e.network) S.online = false;
+  } finally {
+    S.syncing = false; S.version++;
+    render();
+    if (sent) toast(sent === 1 ? 'Hochgeladen ✓' : sent + ' Änderungen hochgeladen ✓');
+    if (_syncAgain) { _syncAgain = false; setTimeout(sync, 50); }
+  }
+}
+function onUnauthorized() {
+  if (!S.token) return;
+  S.token = null; LS.del('token');
+  toast('Dieses Gerät wurde abgemeldet. Bitte Code neu eingeben.');
+  render();
+}
+
+// ---------------------------------------------------------------- Oberfläche
+const $ = (s, r = document) => r.querySelector(s);
+const app = $('#app');
+let _toastT;
+function toast(msg, ms = 3200) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('on'), ms); }
+function pendingCount() { return S.queue.reduce((n, op) => n + (op.typ === 'import' ? op.liste.length : 1), 0); }
+function renderStatus() {
+  const d = $('#dot');
+  const fehler = S.queue.some((o) => o.fehler);
+  d.className = (S.token ? '' : 'hidden ') + 'dot ' + (fehler ? 'err' : !S.online ? 'off' : S.queue.length || S.syncing ? 'warte' : '');
+  d.title = fehler ? 'Fehler beim Hochladen' : !S.online ? 'Offline' : S.queue.length ? pendingCount() + ' warten auf Upload' : 'Online, alles hochgeladen';
+  const ms = $('#meterSel');
+  const opts = meters().map((m) => '<option value="' + esc(m.id) + '"' + (curMeter() && m.id === curMeter().id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('');
+  if (ms.innerHTML !== opts) ms.innerHTML = opts;
+  ms.classList.toggle('hidden', meters().length < 2);
+}
+function render() {
+  renderStatus();
+  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab === S.tab);
+  $('#tabs').classList.toggle('hidden', !S.token);
+  destroyCharts();
+  if (!S.token) { app.innerHTML = viewLogin(); return; }
+  if (!meters().length) { app.innerHTML = viewErsterZaehler(); return; }
+  const v = { start: viewStart, liste: viewListe, auswertung: viewAuswertung, einstellungen: viewEinstellungen }[S.tab] || viewStart;
+  app.innerHTML = (isDemo() ? '<div class="banner b">🧪 <b>Demo-Modus:</b> Du siehst erfundene ***TEST***-Daten. Echte Daten wählst du oben im Zähler-Feld.</div>' : '') + v();
+  if (S.tab === 'auswertung') drawCharts();
+  if (S.tab === 'einstellungen') loadSettingsLists();
+}
+function destroyCharts() { for (const c of Object.values(S.charts)) try { c.destroy(); } catch {} S.charts = {}; }
+
+function viewLogin() {
+  return `<div class="login card">
+    <div class="lbl">Anmelden</div>
+    <p class="dim">Gib deinen persönlichen Zugangscode ein. Danach bleibt dieses Gerät angemeldet.</p>
+    <label class="f"><span>Zugangscode</span><input id="lgCode" class="i mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"></label>
+    <label class="f"><span>Name dieses Geräts</span><input id="lgDev" class="i" value="${esc(guessDevice())}" maxlength="60"></label>
+    <div id="lgErr" class="warn r hidden"></div>
+    <button class="btn p full" data-act="login">Anmelden</button>
+    <details style="margin-top:12px"><summary>Server-Adresse</summary>
+      <label class="f"><span>Adresse der API (nur ändern, wenn nötig)</span><input id="lgApi" class="i mono" value="${esc(apiBase())}"></label>
+    </details>
+  </div>`;
+}
+function guessDevice() { const u = navigator.userAgent; return /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android-Handy' : 'Computer'; }
+function viewErsterZaehler() {
+  return `<div class="card"><div class="lbl">Willkommen${S.person ? ', ' + esc(S.person) : ''}</div>
+    <p>Lege zuerst deinen Zähler an.</p>
+    <label class="f"><span>Name</span><input id="nzName" class="i" value="Hauszähler"></label>
+    <label class="f"><span>Zählertyp</span><select id="nzTyp" class="i"><option value="mechanisch">Mechanischer Rollenzähler</option><option value="digital">Digitaler Zähler / moderne Messeinrichtung</option></select></label>
+    <button class="btn p full" data-act="ersterZaehler">Zähler anlegen</button>
+    <hr><p class="dim">Erst einmal ausprobieren? In den Einstellungen kannst du Demo-Daten erzeugen.</p>
+    <button class="btn full" data-act="demoAn">🧪 Demo-Daten (3 Jahre, ***TEST***) erzeugen</button></div>`;
+}
+
+function lastBackupInfo() {
+  const v = setting('letzte_sicherung');
+  if (!v) return { text: 'noch nie', alt: true };
+  const t = Date.parse(v);
+  const tage = Math.floor((Date.now() - t) / DAY);
+  return { text: fmtDate(t) + (tage > 0 ? ' (vor ' + tage + ' Tag' + (tage === 1 ? '' : 'en') + ')' : ' (heute)'), alt: tage > 30 };
+}
+function uploadInfo() {
+  const n = pendingCount();
+  const fehler = S.queue.filter((o) => o.fehler);
+  if (fehler.length) return `<span class="pill r">Fehler</span> ${esc(fehler[0].fehler)} <button class="btn sm" data-act="retry">Erneut versuchen</button>`;
+  if (n) return `<span class="pill y">⏳ ${n} wartet${n === 1 ? '' : 'en'}</span> ${S.online ? (S.syncing ? 'wird hochgeladen …' : '') : 'kein Netz – wird automatisch hochgeladen'}`;
+  if (!S.online) return '<span class="pill n">offline</span> alles Erfasste ist hochgeladen';
+  return '<span class="pill g">✓ alles hochgeladen</span>' + (S.lastSync ? ' <span class="dim">Stand ' + fmtTime(S.lastSync) + ' Uhr</span>' : '');
+}
+function cmpBox(pts, a, b, label) {
+  const cur = rangeKwh(pts, a, b);
+  const prev = rangeKwh(pts, shiftYear(a, -1), shiftYear(b, -1));
+  if (cur == null) return '';
+  const d = prev ? (cur - prev) / prev : null;
+  return `<div class="card"><div class="lbl">${label}</div><div class="kpi">${fmtKwh(cur)}</div>
+    <div class="dim">Vorjahr gleicher Zeitraum: ${prev == null ? 'keine Daten' : fmtKwh(prev) + ' <span class="pill ' + (cur <= prev ? 'g' : 'r') + '">' + fmtPct(d) + '</span>'}</div></div>`;
+}
+function viewStart() {
+  const M = model();
+  const last = M.pts[M.pts.length - 1];
+  const lr = M.readings.slice().sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))[0];
+  const bk = lastBackupInfo();
+  let h = '';
+  if (bk.alt && !isDemo()) h += `<div class="banner r">💾 Letzte Sicherung: <b>${esc(bk.text)}</b>. Bitte einmal im Monat sichern. <button class="btn sm" data-act="tab" data-tab="einstellungen" style="margin-top:6px">Zur Sicherung</button></div>`;
+  h += `<div class="card"><div class="lbl">Letzter Zählerstand</div>`;
+  if (lr) h += `<div class="big">${fmtN(+lr.value, 1)} <small>kWh</small></div><div class="dim">am ${fmtDT(Date.parse(lr.ts))} Uhr · ${esc(lr.created_by || '')}${lr._pending ? ' · <span class="pill y">wartet auf Upload</span>' : ''}</div>`;
+  else h += `<div class="dim">Noch keine Ablesung.</div>`;
+  h += `</div>`;
+  h += `<button class="btn p xl" data-act="kamera">📷 Zähler ablesen</button>`;
+  h += `<div class="row" style="margin-bottom:12px"><button class="btn" data-act="galerie">🖼️ Foto aus Galerie</button><button class="btn" data-act="hand">✍️ Von Hand</button></div>`;
+  if (last) {
+    const p = bParts(last.t);
+    const ms = bLocalToMs(p.y, p.m, 1);
+    h += cmpBox(M.pts, Math.max(ms, M.pts[0].t), last.t, 'Verbrauch ' + MONATE_LANG[p.m - 1] + ' (1.–' + p.d + '.)');
+    const avg = avgPerDay(M.pts);
+    const pr = projectYear(M.pts, p.y);
+    h += `<div class="grid2" style="margin-bottom:12px"><div class="card"><div class="lbl">Ø pro Tag</div><div class="kpi">${fmtN(avg, 1)}</div><div class="dim">kWh, letzte 365 Tage</div></div>
+      <div class="card"><div class="lbl">Hochrechnung ${p.y}</div><div class="kpi">${pr ? fmtN(pr.total, 0) : '–'}</div><div class="dim">kWh im Jahr</div></div></div>`;
+    const b = billing(M.pts, M.days, M.tarife, M.meter.stichtag, Date.now());
+    if (b && !b.ohneTarif) h += `<div class="card"><div class="lbl">Abrechnung zum ${fmtKey(b.endKey)}</div><div class="kpi ${b.saldo > 0 ? 'pos' : 'neg'}">${b.saldo > 0 ? 'Nachzahlung ' : 'Guthaben '}${fmtEur(Math.abs(b.saldo))}</div><div class="dim">Prognose: ${fmtKwh(b.kwh, 0)} · Kosten ${fmtEur(b.kosten)} · Abschläge ${fmtEur(b.abschlaege)}</div></div>`;
+  }
+  h += `<div class="card"><div class="lbl">Status</div><div style="margin-bottom:8px">Upload: ${uploadInfo()}</div>
+    <div>Letzte Sicherung: <b class="${bk.alt ? 'pos' : ''}" style="${bk.alt ? 'color:var(--rot)' : ''}">${esc(bk.text)}</b></div></div>`;
+  return h;
+}
+
+function viewListe() {
+  const M = model();
+  const rs = M.readings.map((r) => ({ ...r, t: Date.parse(r.ts) })).sort((a, b) => b.t - a.t);
+  const asc = rs.slice().reverse();
+  const info = new Map();
+  for (let i = 0; i < asc.length; i++) {
+    const r = asc[i], p = asc[i - 1];
+    if (!p) continue;
+    const startV = p.value;
+    const endV = r.kind === 'wechsel' ? +r.old_value : +r.value;
+    const dd = (r.t - p.t) / DAY;
+    info.set(r.id, { delta: endV - startV, proTag: dd > 0 ? (endV - startV) / dd : null, est: dd > GAP_DAYS, neg: endV < startV - 1e-6 });
+  }
+  let h = `<div class="row" style="margin-bottom:12px"><button class="btn p" data-act="hand">＋ Von Hand</button><button class="btn" data-act="wechsel">🔁 Zählerwechsel</button><button class="btn" data-act="csvImport">📥 Altdaten (CSV)</button></div>`;
+  if (!rs.length) return h + '<div class="card dim">Noch keine Ablesungen.</div>';
+  h += '<div class="list">';
+  let yr = null;
+  for (const r of rs) {
+    const y = bParts(r.t).y;
+    if (y !== yr) { yr = y; h += `<div class="yr">${y}</div>`; }
+    const i = info.get(r.id);
+    const src = { foto: '📷', hand: '✍️', import: '📥', demo: '🧪' }[r.source] || '';
+    h += `<div class="item" data-act="edit" data-id="${esc(r.id)}"><div><div class="v">${fmtN(+r.value, 1)}</div>
+      <div class="dim">${fmtDT(r.t)} · ${src} ${esc(r.created_by || '')}</div><div class="bd">
+      ${r.kind === 'wechsel' ? '<span class="pill b">Zählerwechsel · alt ' + fmtN(+r.old_value, 1) + '</span>' : ''}
+      ${r._pending ? '<span class="pill y">wartet auf Upload</span>' : ''}
+      ${i && i.neg ? '<span class="pill r">kleiner als vorher</span>' : ''}
+      ${i && i.est ? '<span class="pill n">Lücke → Schätzung</span>' : ''}
+      ${r.photo_id || r._fotoLokal ? '<span class="pill n">Foto</span>' : ''}</div></div>
+      <div class="r">${i ? (i.neg ? '<span class="pos">' : '') + (i.delta >= 0 ? '+' : '') + fmtKwh(i.delta) + (i.neg ? '</span>' : '') + '<div class="dim">' + fmtN(i.proTag, 1) + ' kWh/Tag</div>' : '<span class="dim">Start</span>'}</div></div>`;
+  }
+  return h + '</div>';
+}
+
+const YEAR_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#a78bfa', '#ec4899', '#14b8a6', '#94a3b8', '#eab308'];
+function yearColor(years, y) { const sorted = years.slice().sort((a, b) => b - a); return YEAR_COLORS[sorted.indexOf(y) % YEAR_COLORS.length]; }
+function viewAuswertung() {
+  const M = model();
+  if (M.pts.length < 2) return '<div class="card dim">Für die Auswertung braucht es mindestens zwei Ablesungen.</div>';
+  const years = Object.keys(M.agg.years).map(Number).sort((a, b) => a - b);
+  const last = M.pts[M.pts.length - 1];
+  const cy = bParts(last.t).y;
+  const avg = avgPerDay(M.pts);
+  const pr = projectYear(M.pts, cy);
+  const ytd = rangeKwh(M.pts, Math.max(bLocalToMs(cy, 1, 1), M.pts[0].t), last.t);
+  let h = `<div class="chips">${years.map((y) => `<button class="chip ${S.hiddenYears.has(y) ? 'off' : ''}" style="border-color:${yearColor(years, y)};color:${yearColor(years, y)}" data-act="year" data-y="${y}">${y}</button>`).join('')}</div>`;
+  h += `<div class="grid2" style="margin-bottom:12px">
+    <div class="card"><div class="lbl">Ø pro Tag</div><div class="kpi">${fmtN(avg, 1)}</div><div class="dim">kWh, letzte 365 Tage</div></div>
+    <div class="card"><div class="lbl">${cy} bis ${fmtDate(last.t).slice(0, 6)}</div><div class="kpi">${fmtN(ytd, 0)}</div><div class="dim">kWh bisher</div></div>
+    <div class="card"><div class="lbl">Hochrechnung ${cy}</div><div class="kpi">${pr ? fmtN(pr.total, 0) : '–'}</div><div class="dim">kWh · ${pr ? esc(pr.methode) : ''}</div></div>
+    <div class="card"><div class="lbl">Ø pro Woche / Monat</div><div class="kpi">${fmtN(avg * 7, 0)} / ${fmtN(avg * 30.44, 0)}</div><div class="dim">kWh</div></div></div>`;
+  h += `<div class="card"><div class="lbl">Verbrauch je Monat</div><div class="chartbox"><canvas id="chM"></canvas></div><div class="dim" style="margin-top:6px">Blasse Balken = geschätzt (Lücke über 3 Wochen) oder Monat unvollständig. Tippen zeigt Werte.</div></div>`;
+  h += `<div class="card"><div class="lbl">Verbrauch je Kalenderwoche</div><div class="chartbox"><canvas id="chW"></canvas></div><div class="dim" style="margin-top:6px">Nur vollständige Wochen. Gestrichelt = geschätzt. KW nach ISO 8601.</div></div>`;
+  h += `<div class="card"><div class="lbl">Vergleich ${cy} mit ${cy - 1}</div><div class="seg"><button class="${S.cmpMode === 'monat' ? 'on' : ''}" data-act="cmp" data-m="monat">Monate</button><button class="${S.cmpMode === 'kw' ? 'on' : ''}" data-act="cmp" data-m="kw">Kalenderwochen</button></div>${cmpTable(M, cy)}</div>`;
+  h += `<div class="card"><div class="lbl">Jahre</div><table class="t"><tr><th>Jahr</th><th>kWh</th><th>Tage</th><th>Ø/Tag</th><th>geschätzt</th></tr>
+    ${years.slice().reverse().map((y) => { const Y = M.agg.years[y]; return `<tr><td>${y}</td><td>${fmtN(Y.kwh, 0)}</td><td>${fmtN(Y.cov, 0)}</td><td>${fmtN(Y.kwh / Y.cov, 1)}</td><td>${Y.kwh ? fmtN((Y.est / Y.kwh) * 100, 0) + ' %' : '–'}</td></tr>`; }).join('')}</table>
+    <div class="dim" style="margin-top:6px">„Tage“ = Tage mit Ablesedaten. Teiljahre sind nicht hochgerechnet.</div></div>`;
+  h += costSection(M, cy);
+  return h;
+}
+function cmpTable(M, cy) {
+  const pts = M.pts, last = M.pts[M.pts.length - 1].t;
+  const rows = [];
+  if (S.cmpMode === 'monat') {
+    for (let m = 1; m <= 12; m++) {
+      const a = bLocalToMs(cy, m, 1);
+      if (a > last) break;
+      const b = Math.min(bLocalToMs(m === 12 ? cy + 1 : cy, m === 12 ? 1 : m + 1, 1), last);
+      const partial = b === last && b < bLocalToMs(m === 12 ? cy + 1 : cy, m === 12 ? 1 : m + 1, 1);
+      rows.push({ label: MONATE[m - 1] + (partial ? ' (bis ' + bParts(last).d + '.)' : ''), cur: rangeKwh(pts, a, b), prev: rangeKwh(pts, shiftYear(a, -1), shiftYear(b, -1)) });
+    }
+  } else {
+    const nw = weeksInYear(cy);
+    for (let w = 1; w <= nw; w++) {
+      const sk = isoWeekStartKey(cy, w);
+      const a = dayStart(sk);
+      if (a > last) break;
+      const fullB = dayStart(addDays(sk, 7));
+      const b = Math.min(fullB, last);
+      const dur = b - a;
+      let prev = null;
+      if (w <= weeksInYear(cy - 1)) { const pa = dayStart(isoWeekStartKey(cy - 1, w)); prev = rangeKwh(pts, pa, pa + dur); }
+      rows.push({ label: 'KW ' + w + (b < fullB ? ' (lfd.)' : ''), cur: rangeKwh(pts, a, b), prev });
+    }
+  }
+  const sumC = rows.reduce((s, r) => s + (r.cur != null && r.prev != null ? r.cur : 0), 0);
+  const sumP = rows.reduce((s, r) => s + (r.cur != null && r.prev != null ? r.prev : 0), 0);
+  const tr = (l, c, p, cls = '') => { const d = c != null && p != null ? c - p : null; const pc = d != null && p ? d / p : null; const col = d == null ? '' : d <= 0 ? 'neg' : 'pos'; return `<tr class="${cls}"><td>${l}</td><td>${fmtN(c, 1)}</td><td>${fmtN(p, 1)}</td><td class="${col}">${d == null ? '–' : (d > 0 ? '+' : '') + fmtN(d, 1)}</td><td class="${col}">${fmtPct(pc)}</td></tr>`; };
+  return `<div style="overflow-x:auto"><table class="t"><tr><th>Zeitraum</th><th>${cy}</th><th>${cy - 1}</th><th>Δ kWh</th><th>Δ %</th></tr>
+    ${rows.slice().reverse().map((r) => tr(r.label, r.cur, r.prev)).join('')}
+    ${tr('Summe (vergleichbar)', sumP ? sumC : null, sumP || null, 'sum')}</table></div>
+    <div class="dim" style="margin-top:6px">Grün = weniger, rot = mehr Verbrauch als im Vorjahr. Laufende Zeiträume werden mit derselben Zeitspanne im Vorjahr verglichen.</div>`;
+}
+function costSection(M, cy) {
+  if (!M.tarife.length) return `<div class="card"><div class="lbl">Kosten</div><div class="dim">Noch kein Tarif hinterlegt. <button class="btn sm" data-act="tab" data-tab="einstellungen">Tarif anlegen</button></div></div>`;
+  const ms = costByMonth(M.days, M.tarife, cy);
+  let h = `<div class="card"><div class="lbl">Kosten ${cy}</div><div style="overflow-x:auto"><table class="t"><tr><th>Monat</th><th>kWh</th><th>Kosten</th><th>Abschlag</th><th>Differenz</th></tr>`;
+  let s = { kwh: 0, arbeit: 0, grund: 0, summe: 0, abschlag: 0 };
+  ms.forEach((m, i) => {
+    if (!m.cov && !m.abschlag) return;
+    for (const k in s) s[k] += m[k] || 0;
+    h += `<tr><td>${MONATE[i]}</td><td>${fmtN(m.kwh, 0)}</td><td>${fmtEur(m.summe)}</td><td>${fmtEur(m.abschlag)}</td><td class="${m.summe > m.abschlag ? 'pos' : 'neg'}">${fmtEur(m.summe - m.abschlag)}</td></tr>`;
+  });
+  h += `<tr class="sum"><td>${cy}</td><td>${fmtN(s.kwh, 0)}</td><td>${fmtEur(s.summe)}</td><td>${fmtEur(s.abschlag)}</td><td class="${s.summe > s.abschlag ? 'pos' : 'neg'}">${fmtEur(s.summe - s.abschlag)}</td></tr></table></div>
+    <div class="dim" style="margin-top:6px">Kosten = Arbeitspreis ${fmtEur(s.arbeit)} + Grundpreis ${fmtEur(s.grund)} (nur Tage mit Ablesedaten). Differenz rot = Kosten über Abschlag.</div>`;
+  const yrs = Object.keys(M.agg.years).map(Number).sort((a, b) => b - a);
+  h += `<table class="t" style="margin-top:12px"><tr><th>Jahr</th><th>kWh</th><th>Kosten</th></tr>${yrs.map((y) => { const c = costByMonth(M.days, M.tarife, y); const k = c.reduce((a, m) => a + m.summe, 0); const kw = c.reduce((a, m) => a + m.kwh, 0); return `<tr><td>${y}</td><td>${fmtN(kw, 0)}</td><td>${fmtEur(k)}</td></tr>`; }).join('')}</table>`;
+  const b = billing(M.pts, M.days, M.tarife, M.meter.stichtag, Date.now());
+  if (b) h += `<hr><div><b>Prognose zum Abrechnungsstichtag ${fmtKey(b.endKey)}</b> (Zeitraum ${fmtKey(b.startKey)}–${fmtKey(b.endKey)})</div>
+    <table class="t" style="margin-top:6px"><tr><td>Verbrauch abgelesen</td><td>${fmtKwh(b.kwhIst, 0)}</td></tr><tr><td>Verbrauch geschätzt (Rest)</td><td>${fmtKwh(b.kwhProg, 0)}</td></tr>
+    <tr><td>Kosten gesamt</td><td>${fmtEur(b.kosten)}</td></tr><tr><td>Abschläge</td><td>${fmtEur(b.abschlaege)}</td></tr>
+    <tr class="sum"><td>${b.saldo > 0 ? 'Nachzahlung' : 'Guthaben'}</td><td class="${b.saldo > 0 ? 'pos' : 'neg'}">${fmtEur(Math.abs(b.saldo))}</td></tr></table>
+    ${b.ohneTarif ? '<div class="warn">Für einen Teil des Zeitraums gibt es keinen Tarif – diese Tage fehlen in den Kosten.</div>' : ''}`;
+  return h + '</div>';
+}
+function drawCharts() {
+  if (!window.Chart) { const n = $('#chM'); if (n) n.parentNode.innerHTML = '<div class="dim">Diagramme erscheinen, sobald die App einmal mit Netz geladen wurde.</div>'; return; }
+  const M = model();
+  Chart.defaults.color = '#8a97a8'; Chart.defaults.borderColor = '#2a3646'; Chart.defaults.font.family = 'system-ui, -apple-system, Segoe UI, Roboto, Arial';
+  const years = Object.keys(M.agg.years).map(Number).sort((a, b) => a - b);
+  const vis = years.filter((y) => !S.hiddenYears.has(y));
+  const tip = { callbacks: { label: (c) => c.dataset.label + ': ' + fmtKwh(c.raw) + (c.dataset.meta[c.dataIndex] || '') } };
+  const yAxis = { ticks: { callback: (v) => fmtN(v, 0) }, beginAtZero: true };
+  const cm = $('#chM');
+  if (cm) S.charts.m = new Chart(cm, {
+    type: 'bar',
+    data: { labels: MONATE, datasets: vis.map((y) => { const col = yearColor(years, y); const mo = M.agg.years[y].months; return {
+      label: String(y), data: mo.map((o) => (o.cov > 0 ? Math.round(o.kwh * 10) / 10 : null)),
+      backgroundColor: mo.map((o, i) => (o.cov && (o.estCov / o.cov > 0.5 || o.cov < daysInMonth(y, i + 1) - 0.01) ? col + '55' : col)), borderColor: col, borderWidth: 1, borderRadius: 3,
+      meta: mo.map((o, i) => { const dim = daysInMonth(y, i + 1); let s = ''; if (o.cov && o.estCov / o.cov > 0.5) s += ' (geschätzt)'; if (o.cov > 0 && o.cov < dim - 0.01) s += ' (unvollständig: ' + fmtN(o.cov, 1) + ' von ' + dim + ' Tagen)'; return s; }) }; }) },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tip }, scales: { y: yAxis } },
+  });
+  const cw = $('#chW');
+  if (cw) S.charts.w = new Chart(cw, {
+    type: 'line',
+    data: { labels: Array.from({ length: 53 }, (_, i) => String(i + 1)), datasets: vis.filter((y) => M.agg.weeks[y]).map((y) => { const col = yearColor(years, y); const W = M.agg.weeks[y]; const arr = Array.from({ length: 53 }, (_, i) => W[i + 1]); return {
+      label: String(y), data: arr.map((o) => (o && o.cov > 6.99 ? Math.round(o.kwh * 10) / 10 : null)), borderColor: col, backgroundColor: col, pointRadius: 2, borderWidth: 2, tension: 0.25, spanGaps: false,
+      segment: { borderDash: (c) => { const o = arr[c.p1DataIndex]; return o && o.cov && o.estCov / o.cov > 0.5 ? [5, 4] : undefined; } },
+      meta: arr.map((o) => (!o ? '' : (o.cov && o.estCov / o.cov > 0.5 ? ' (geschätzt)' : '') + (o.cov < 6.99 ? ' (unvollständig: ' + fmtN(o.cov, 1) + ' Tage)' : ''))) }; }) },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { ...tip.callbacks, title: (c) => 'KW ' + c[0].label } } }, scales: { y: yAxis, x: { ticks: { maxTicksLimit: 14 } } } },
+  });
+}
+
+function viewEinstellungen() {
+  const m = curMeter();
+  const bk = lastBackupInfo();
+  const tarife = S.data.tarife.filter((t) => t.meter_id === m.id).sort((a, b) => (a.valid_from < b.valid_from ? 1 : -1));
+  const demo = meters().find((x) => x.is_demo);
+  return `<div class="card"><div class="lbl">Sicherung</div>
+      <p>Letzte Sicherung: <b style="${bk.alt ? 'color:var(--rot)' : ''}">${esc(bk.text)}</b></p>
+      <div class="row"><button class="btn p" data-act="export">💾 Sicherung erstellen</button><button class="btn" data-act="importBackup">♻️ Wiederherstellen</button></div>
+      <p class="dim">Erstellt „Stromzaehler_Sicherung_TT-MM-JJJJ.json“ (alles inkl. Fotos und Tarife) und eine CSV-Datei für Excel. Danach öffnet sich das Teilen-Menü – dort „In OneDrive speichern“ wählen.</p>
+      <button class="btn full" data-act="ics">📅 Monatliche Erinnerung in den Kalender</button></div>
+
+    <div class="card"><div class="lbl">Tarif – ${esc(m.name)}</div>
+      ${tarife.length ? `<table class="t"><tr><th>Gültig ab</th><th>ct/kWh</th><th>€/Monat</th><th>Abschlag</th></tr>${tarife.map((t) => `<tr data-act="tarif" data-id="${esc(t.id)}" style="cursor:pointer"><td>${fmtKey(t.valid_from)}</td><td>${fmtN(t.arbeitspreis_ct, 2)}</td><td>${fmtEur(t.grundpreis_monat)}</td><td>${fmtEur(t.abschlag_monat)}</td></tr>`).join('')}</table>` : '<p class="dim">Noch kein Tarif.</p>'}
+      <div class="row" style="margin-top:10px"><button class="btn" data-act="tarif">＋ Tarif</button><button class="btn" data-act="zaehler" data-id="${esc(m.id)}">Zähler &amp; Stichtag (${fmtKey('2000-' + (m.stichtag || '12-31')).slice(0, 6)})</button></div></div>
+
+    <div class="card"><div class="lbl">Angemeldete Geräte</div><div id="geraeteListe" class="dim">wird geladen …</div></div>
+    <div class="card"><div class="lbl">Personen &amp; Zugangscodes</div><div id="personenListe" class="dim">wird geladen …</div>
+      <button class="btn full" data-act="personNeu" style="margin-top:10px">＋ Person hinzufügen</button></div>
+
+    <div class="card"><div class="lbl">Zähler</div>
+      ${meters().map((x) => `<div class="item" data-act="zaehler" data-id="${esc(x.id)}"><div><b>${esc(x.name)}</b><div class="dim">${esc({ bezug: 'Bezug', einspeisung: 'Einspeisung', waermepumpe: 'Wärmepumpe', sonstiges: 'Sonstiges' }[x.art] || x.art)} · OBIS ${esc(x.obis || '–')} · ${x.typ === 'digital' ? 'digital' : 'mechanisch'}</div></div><div class="r dim">›</div></div>`).join('')}
+      <button class="btn full" data-act="zaehler" style="margin-top:10px">＋ Weiteren Zähler anlegen</button></div>
+
+    <div class="card"><div class="lbl">Demo-Modus</div>
+      ${demo ? `<p>Demo-Daten sind vorhanden (${S.data.ablesungen.filter((a) => a.meter_id === demo.id).length} Ablesungen, ***TEST***).</p><div class="row"><button class="btn" data-act="demoZeigen">Demo ansehen</button><button class="btn d" data-act="demoAus">Demo-Daten löschen</button></div>`
+        : `<p class="dim">Erzeugt einen eigenen Demo-Zähler mit erfundenen Daten über 3 Jahre. Deine echten Daten bleiben unberührt.</p><button class="btn full" data-act="demoAn">🧪 Demo-Daten erzeugen</button>`}</div>
+
+    <div class="card"><div class="lbl">Dieses Gerät</div>
+      <p>Angemeldet als <b>${esc(S.person || '')}</b>.<br><span class="dim">Server: <span class="mono">${esc(apiBase())}</span><br>Noch nicht hochgeladen: ${pendingCount()}</span></p>
+      <div class="row"><button class="btn" data-act="syncNow">🔄 Jetzt abgleichen</button><button class="btn d" data-act="logout">Abmelden</button></div>
+      <p class="dim" style="margin-top:12px">Stromzähler · App-Version ${APP_VERSION}</p></div>`;
+}
+async function loadSettingsLists() {
+  try {
+    const [g, p] = await Promise.all([api('GET', '/geraete'), api('GET', '/personen')]);
+    const gl = $('#geraeteListe'), pl = $('#personenListe');
+    if (gl) gl.classList.remove('dim'), gl.innerHTML = g.geraete.map((d) => `<div class="item" style="cursor:default"><div><b>${esc(d.name)}</b>${d.id === g.dieses ? ' <span class="pill b">dieses Gerät</span>' : ''}<div class="dim">${esc(d.person)} · angemeldet ${fmtDate(Date.parse(d.created_at))} · zuletzt ${fmtDT(Date.parse(d.last_seen))}</div></div>
+        <div class="r"><button class="btn sm d" data-act="geraetAb" data-id="${esc(d.id)}" data-name="${esc(d.name)}">Abmelden</button></div></div>`).join('') || 'keine';
+    if (pl) pl.classList.remove('dim'), pl.innerHTML = p.personen.map((x) => `<div class="item" style="cursor:default"><div><b>${esc(x.name)}</b> ${x.active ? '' : '<span class="pill n">deaktiviert</span>'}<div class="dim">seit ${fmtDate(Date.parse(x.created_at))}</div></div>
+        <div class="r"><button class="btn sm" data-act="neuerCode" data-id="${x.id}" data-name="${esc(x.name)}">Neuer Code</button></div></div>`).join('');
+  } catch (e) {
+    const gl = $('#geraeteListe'); if (gl) gl.textContent = e.network ? 'Nur mit Netz verfügbar.' : e.message;
+    const pl = $('#personenListe'); if (pl) pl.textContent = e.network ? 'Nur mit Netz verfügbar.' : e.message;
+  }
+}
+
+// ---------------------------------------------------------------- Dialoge
+function openSheet(html, onMount) {
+  const root = document.createElement('div');
+  root.className = 'modal';
+  root.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  root.addEventListener('click', (e) => { if (e.target === root && !root.dataset.locked) closeSheet(root); });
+  $('#modals').appendChild(root);
+  document.body.style.overflow = 'hidden';
+  if (onMount) onMount(root.firstElementChild, root);
+  return root;
+}
+function closeSheet(root) { root.remove(); if (!$('#modals').children.length) document.body.style.overflow = ''; }
+function confirmDlg(text, okLabel = 'OK', danger = false) {
+  return new Promise((res) => {
+    openSheet(`<h2>Bitte bestätigen</h2><p>${text}</p><div class="row"><button class="btn" data-x="no">Abbrechen</button><button class="btn ${danger ? 'd' : 'p'}" data-x="yes">${esc(okLabel)}</button></div>`, (sh, root) => {
+      sh.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (!b) return; closeSheet(root); res(b.dataset.x === 'yes'); });
+    });
+  });
+}
+function nowLocal(ms = Date.now()) { const p = bParts(ms); return { d: key(p.y, p.m, p.d), t: String(p.h).padStart(2, '0') + ':' + String(p.mi).padStart(2, '0') }; }
+function fromLocal(d, t) { const [y, m, dd] = d.split('-').map(Number); const [h, mi] = (t || '12:00').split(':').map(Number); return bLocalToMs(y, m, dd, h || 0, mi || 0); }
+
+// Formular für neue/zu bearbeitende Ablesung (auch Bestätigung nach Foto-Erkennung)
+function readingForm(o) {
+  const m = curMeter();
+  const edit = !!o.edit;
+  const r = o.edit || {};
+  const ts = edit ? Date.parse(r.ts) : o.ts || Date.now();
+  const nl = nowLocal(ts);
+  const wechsel = edit ? r.kind === 'wechsel' : !!o.wechsel;
+  const val = edit ? r.value : o.value;
+  const title = edit ? 'Ablesung bearbeiten' : o.wechsel ? 'Zählerwechsel erfassen' : o.source === 'foto' ? 'Zählerstand bestätigen' : 'Zählerstand eingeben';
+  const html = `<h2>${title}</h2>
+    ${o.crop ? `<img class="prev" src="${o.crop}" alt="Ausschnitt">` : ''}
+    ${o.ki ? `<div class="banner ${o.ki.wert != null ? (o.ki.sicher ? 'b' : 'y') : 'r'}">${o.ki.wert != null ? '🤖 Erkannt: <b>' + fmtN(o.ki.wert, 1) + '</b>' + (o.ki.sicher ? '' : ' – unsicher, bitte genau prüfen') + (o.ki.hinweis ? '<br><span class="dim">' + esc(o.ki.hinweis) + '</span>' : '') : '⚠️ ' + esc(o.ki.fehler || 'Nicht erkannt') + ' – bitte Wert eintragen.'}</div>` : ''}
+    ${o.exif ? '<div class="dim" style="margin-bottom:8px">📅 Datum und Uhrzeit aus dem Foto übernommen.</div>' : ''}
+    <div class="chk"><input type="checkbox" id="fWechsel" ${wechsel ? 'checked' : ''}><label for="fWechsel">Zählerwechsel (alter Zähler ausgebaut, neuer eingebaut)</label></div>
+    <label class="f ${wechsel ? '' : 'hidden'}" id="fOldWrap"><span>Endstand des ALTEN Zählers (kWh)</span><input id="fOld" class="i num" inputmode="decimal" value="${r.old_value != null ? esc(String(r.old_value).replace('.', ',')) : ''}"></label>
+    <label class="f"><span id="fValLbl">${wechsel ? 'Anfangsstand des NEUEN Zählers (kWh)' : 'Zählerstand (kWh)'}</span><input id="fVal" class="i num" inputmode="decimal" autocomplete="off" value="${val != null ? esc(String(val).replace('.', ',')) : ''}" placeholder="z. B. 31845,6"></label>
+    <div class="grid2"><label class="f"><span>Datum</span><input id="fDate" type="date" class="i" value="${nl.d}"></label><label class="f"><span>Uhrzeit</span><input id="fTime" type="time" class="i" value="${nl.t}"></label></div>
+    <label class="f"><span>Notiz (optional)</span><input id="fNote" class="i" maxlength="300" value="${esc(r.note || o.note || '')}"></label>
+    ${edit && (r.photo_id || r._fotoLokal) ? '<button class="btn full" data-x="foto" style="margin-bottom:12px">🖼️ Belegfoto anzeigen</button><div id="fFoto"></div>' : ''}
+    ${edit ? `<p class="dim">Erfasst von ${esc(r.created_by || '–')} am ${r.created_at ? fmtDT(Date.parse(r.created_at)) : '–'}${r.updated_by ? ' · geändert von ' + esc(r.updated_by) + ' am ' + fmtDT(Date.parse(r.updated_at)) : ''}${r.ai_value != null ? ' · KI-Wert ' + fmtN(+r.ai_value, 1) : ''}</p>` : ''}
+    <div id="fWarn"></div>
+    <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn p" data-x="save" id="fSave">Speichern</button></div>
+    ${edit ? '<button class="btn d full" data-x="del" style="margin-top:12px">Ablesung löschen</button>' : ''}`;
+  openSheet(html, (sh, root) => {
+    root.dataset.locked = '1';
+    const cand = () => {
+      const isW = $('#fWechsel', sh).checked;
+      return { id: edit ? r.id : '__neu__', meter_id: m.id, ts: new Date(fromLocal($('#fDate', sh).value, $('#fTime', sh).value)).toISOString(), value: parseDe($('#fVal', sh).value), kind: isW ? 'wechsel' : 'normal', old_value: isW ? parseDe($('#fOld', sh).value) : null };
+    };
+    const upd = () => {
+      const isW = $('#fWechsel', sh).checked;
+      $('#fOldWrap', sh).classList.toggle('hidden', !isW);
+      $('#fValLbl', sh).textContent = isW ? 'Anfangsstand des NEUEN Zählers (kWh)' : 'Zählerstand (kWh)';
+      const c = cand();
+      let w = [];
+      if (c.value != null && $('#fDate', sh).value) w = checkReading(mergedReadings(m.id), c);
+      $('#fWarn', sh).innerHTML = w.map((x) => `<div class="warn ${x.rot ? 'r' : ''}">${x.info ? 'ℹ️' : '⚠️'} ${esc(x.text)}${x.typ === 'kleiner' && !isW ? ' <button class="btn sm" data-x="alsWechsel">Als Zählerwechsel erfassen</button>' : ''}</div>`).join('');
+      $('#fSave', sh).textContent = w.some((x) => !x.info) ? 'Trotzdem speichern' : 'Speichern';
+    };
+    sh.addEventListener('input', upd);
+    sh.addEventListener('change', upd);
+    upd();
+    if (!edit && val == null) setTimeout(() => $('#fVal', sh).focus(), 150);
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]');
+      if (!b) return;
+      const x = b.dataset.x;
+      if (x === 'cancel') { closeSheet(root); if (o.onCancel) o.onCancel(); }
+      if (x === 'alsWechsel') { $('#fWechsel', sh).checked = true; $('#fOld', sh).value = ''; upd(); $('#fOld', sh).focus(); }
+      if (x === 'foto') showPhoto(r, $('#fFoto', sh));
+      if (x === 'del') {
+        if (await confirmDlg('Ablesung vom ' + fmtDT(Date.parse(r.ts)) + ' (' + fmtN(+r.value, 1) + ' kWh) wirklich löschen? Das Belegfoto wird mit gelöscht.', 'Löschen', true)) {
+          closeSheet(root);
+          if (r._pending) { S.queue = S.queue.filter((q) => !(q.typ === 'create' && q.reading.id === r.id)); await saveQueue(); S.version++; render(); }
+          else await enqueue({ typ: 'delete', id: r.id });
+          toast('Ablesung gelöscht');
+        }
+      }
+      if (x === 'save') {
+        const c = cand();
+        if (c.value == null) { toast('Bitte einen Zählerstand eintragen.'); $('#fVal', sh).focus(); return; }
+        if (c.kind === 'wechsel' && c.old_value == null) { toast('Bitte den Endstand des alten Zählers eintragen.'); $('#fOld', sh).focus(); return; }
+        if (!$('#fDate', sh).value) { toast('Bitte ein Datum wählen.'); return; }
+        const note = $('#fNote', sh).value.trim() || null;
+        closeSheet(root);
+        if (edit) {
+          const patch = { meter_id: m.id, ts: c.ts, value: c.value, old_value: c.old_value, kind: c.kind, note };
+          if (r._pending) { const q = S.queue.find((q) => q.typ === 'create' && q.reading.id === r.id); if (q) Object.assign(q.reading, patch); await saveQueue(); S.version++; render(); sync(); }
+          else await enqueue({ typ: 'update', id: r.id, patch });
+        } else {
+          const id = uid();
+          await enqueue({ typ: 'create', reading: { id, meter_id: m.id, ts: c.ts, value: c.value, old_value: c.old_value, kind: c.kind, source: o.source || 'hand', ai_value: o.ki && o.ki.wert != null ? o.ki.wert : null, note, photo_id: o.foto ? id : null, created_by: S.person, created_at: new Date().toISOString() }, foto: o.foto || null });
+        }
+        toast(S.online ? 'Gespeichert ✓' : 'Gespeichert – wird hochgeladen, sobald Netz da ist');
+      }
+    });
+  });
+}
+async function showPhoto(r, box) {
+  box.innerHTML = '<div class="dim">Foto wird geladen …</div>';
+  try {
+    const f = r._fotoLokal || (await api('GET', '/fotos/' + encodeURIComponent(r.photo_id)));
+    const bin = atob(f.data); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([u8], { type: f.mime || 'image/jpeg' }));
+    box.innerHTML = `<img class="prev" src="${url}" alt="Belegfoto">`;
+  } catch (e) { box.innerHTML = '<div class="warn">' + esc(e.network ? 'Foto nur mit Netz abrufbar.' : e.message) + '</div>'; }
+}
+
+// ---------------------------------------------------------------- Foto: EXIF, Rahmen, Verkleinern, Erkennung
+function readExifDate(buf) {
+  try {
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xffd8) return null;
+    let o = 2;
+    while (o < v.byteLength - 10) {
+      const marker = v.getUint16(o), len = v.getUint16(o + 2);
+      if ((marker & 0xff00) !== 0xff00) break;
+      if (marker === 0xffe1 && v.getUint32(o + 4) === 0x45786966) {
+        const t = o + 10, le = v.getUint16(t) === 0x4949;
+        const g16 = (p) => v.getUint16(p, le), g32 = (p) => v.getUint32(p, le);
+        const ifd = (off) => {
+          const n = g16(t + off), out = {};
+          for (let i = 0; i < n; i++) {
+            const e = t + off + 2 + i * 12, tag = g16(e), type = g16(e + 2), cnt = g32(e + 4);
+            if (type === 2) { const vo = cnt > 4 ? t + g32(e + 8) : e + 8; let s = ''; for (let k = 0; k < cnt - 1; k++) s += String.fromCharCode(v.getUint8(vo + k)); out[tag] = s; }
+            else if (type === 4) out[tag] = g32(e + 8);
+          }
+          return out;
+        };
+        const i0 = ifd(g32(t + 4));
+        let dt = null;
+        if (i0[0x8769]) { const ex = ifd(i0[0x8769]); dt = ex[0x9003] || ex[0x9004]; }
+        dt = dt || i0[0x0132];
+        const m = dt && dt.match(/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d)/);
+        if (!m) return null;
+        const ms = bLocalToMs(+m[1], +m[2], +m[3], +m[4], +m[5]);
+        return ms > Date.UTC(2000, 0, 1) && ms < Date.now() + 5 * 60000 ? ms : null;
+      }
+      o += 2 + len;
+    }
+  } catch {}
+  return null;
+}
+function loadImg(file) {
+  return new Promise((res, rej) => { const url = URL.createObjectURL(file); const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('Bild konnte nicht geöffnet werden.')); im.src = url; });
+}
+function canvasFrom(img, sx, sy, sw, sh, maxDim) {
+  const s = Math.min(1, maxDim / Math.max(sw, sh));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(sw * s)); c.height = Math.max(1, Math.round(sh * s));
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+  g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+function compressImg(img, maxBytes = 150000) {
+  let dim = 1600, last = null;
+  while (dim >= 320) {
+    const c = canvasFrom(img, 0, 0, img.naturalWidth, img.naturalHeight, dim);
+    for (const q of [0.8, 0.7, 0.6, 0.5, 0.42]) {
+      const d = c.toDataURL('image/jpeg', q).split(',')[1];
+      last = d;
+      if (d.length * 0.75 <= maxBytes) return { mime: 'image/jpeg', data: d };
+    }
+    dim = Math.round(dim * 0.75);
+  }
+  return { mime: 'image/jpeg', data: last };
+}
+async function onPhoto(file) {
+  if (!file) return;
+  let img, exif = null;
+  try {
+    exif = readExifDate(await file.arrayBuffer());
+    img = await loadImg(file);
+  } catch (e) { toast(e.message); return; }
+  const rect = LS.get('cropRect', { x: 0.1, y: 0.35, w: 0.8, h: 0.3 });
+  openSheet(`<h2>Ziffernbereich markieren</h2><p class="dim" style="margin-top:-6px">Rahmen mit dem Finger um die Zahlen ziehen (verschieben oder an den Ecken ziehen).</p>
+    <div class="cropwrap"><canvas id="cc"></canvas></div>
+    <button class="btn p xl" data-x="go" id="ccGo">🔍 Zählerstand erkennen</button>
+    <div class="row"><button class="btn" data-x="all">Ganzes Foto</button><button class="btn" data-x="hand">Ohne Erkennung</button><button class="btn" data-x="cancel">Abbrechen</button></div>`, (sh, root) => {
+    root.dataset.locked = '1';
+    const cv = $('#cc', sh), g = cv.getContext('2d');
+    const W = img.naturalWidth, H = img.naturalHeight;
+    let r = { ...rect };
+    const size = () => {
+      const cw = cv.parentNode.clientWidth;
+      const maxH = window.innerHeight * 0.55;
+      let w = cw, h = (cw * H) / W;
+      if (h > maxH) { h = maxH; w = (h * W) / H; }
+      const dpr = window.devicePixelRatio || 1;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      draw();
+    };
+    const draw = () => {
+      const w = cv.width, h = cv.height;
+      g.drawImage(img, 0, 0, w, h);
+      g.fillStyle = 'rgba(0,0,0,.55)';
+      g.beginPath(); g.rect(0, 0, w, h); g.rect(r.x * w, r.y * h, r.w * w, r.h * h); g.fill('evenodd');
+      g.strokeStyle = '#3b82f6'; g.lineWidth = Math.max(2, w / 200); g.strokeRect(r.x * w, r.y * h, r.w * w, r.h * h);
+      g.fillStyle = '#fff';
+      const hs = Math.max(10, w / 40);
+      for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]]) { g.beginPath(); g.arc(px * w, py * h, hs / 2, 0, 7); g.fill(); }
+    };
+    let drag = null;
+    const pos = (e) => { const b = cv.getBoundingClientRect(); return { x: clamp((e.clientX - b.left) / b.width, 0, 1), y: clamp((e.clientY - b.top) / b.height, 0, 1), tol: 28 / b.width, tolY: 28 / b.height }; };
+    cv.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      const p = pos(e);
+      const corners = { nw: [r.x, r.y], ne: [r.x + r.w, r.y], sw: [r.x, r.y + r.h], se: [r.x + r.w, r.y + r.h] };
+      let mode = null;
+      for (const [k, [cx, cy]] of Object.entries(corners)) if (Math.abs(p.x - cx) < p.tol && Math.abs(p.y - cy) < p.tolY) mode = k;
+      if (!mode && p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h) mode = 'move';
+      if (!mode) { mode = 'se'; r = { x: p.x, y: p.y, w: 0.001, h: 0.001 }; }
+      drag = { mode, p0: p, r0: { ...r } };
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      e.preventDefault();
+      const p = pos(e), dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, o = drag.r0;
+      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+      if (drag.mode === 'move') { const nx = clamp(o.x + dx, 0, 1 - o.w), ny = clamp(o.y + dy, 0, 1 - o.h); x1 = nx; y1 = ny; x2 = nx + o.w; y2 = ny + o.h; }
+      else { if (drag.mode.includes('w')) x1 = o.x + dx; if (drag.mode.includes('e')) x2 = o.x + o.w + dx; if (drag.mode.includes('n')) y1 = o.y + dy; if (drag.mode.includes('s')) y2 = o.y + o.h + dy; }
+      r = { x: clamp(Math.min(x1, x2), 0, 1), y: clamp(Math.min(y1, y2), 0, 1), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
+      r.w = Math.min(r.w, 1 - r.x); r.h = Math.min(r.h, 1 - r.y);
+      draw();
+    });
+    const end = () => { if (drag && (r.w < 0.03 || r.h < 0.02)) r = drag.r0; drag = null; draw(); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    size();
+    window.addEventListener('resize', size, { once: true });
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]');
+      if (!b) return;
+      const x = b.dataset.x;
+      if (x === 'cancel') { closeSheet(root); return; }
+      if (x === 'all') { r = { x: 0, y: 0, w: 1, h: 1 }; draw(); return; }
+      const foto = compressImg(img);
+      const crop = canvasFrom(img, r.x * W, r.y * H, r.w * W, r.h * H, 1024);
+      const cropUrl = crop.toDataURL('image/jpeg', 0.85);
+      if (x === 'hand') { closeSheet(root); readingForm({ source: 'foto', foto, crop: cropUrl, ts: exif || Date.now(), exif: !!exif }); return; }
+      LS.set('cropRect', r);
+      b.innerHTML = '<span class="spin"></span> Wird erkannt …'; b.disabled = true;
+      let ki;
+      try {
+        ki = await api('POST', '/erkennen', { bild: cropUrl.split(',')[1], typ: curMeter().typ }, 40000);
+      } catch (err) {
+        ki = { wert: null, fehler: err.network ? 'Kein Netz – Erkennung nicht möglich' : err.message };
+      }
+      closeSheet(root);
+      readingForm({ source: 'foto', foto, crop: cropUrl, ki, value: ki.wert, ts: exif || Date.now(), exif: !!exif });
+    });
+  });
+}
+
+// ---------------------------------------------------------------- Import / Export / Demo
+function parseCsv(text) {
+  const lines = text.replace(/^﻿/, '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [], fehler = [];
+  for (const [i, line] of lines.entries()) {
+    const sep = line.includes(';') ? ';' : line.includes('\t') ? '\t' : ',';
+    const c = line.split(sep).map((s) => s.trim().replace(/^"|"$/g, ''));
+    let d = null, t = '12:00', v = null, note = null;
+    for (const x of c) {
+      let m;
+      if (!d && (m = x.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?$/))) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; d = key(y, +m[2], +m[1]); if (m[4]) t = m[4].padStart(2, '0') + ':' + m[5]; continue; }
+      if (!d && (m = x.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/))) { d = key(+m[1], +m[2], +m[3]); if (m[4]) t = m[4] + ':' + m[5]; continue; }
+      if (d && /^\d{1,2}:\d{2}$/.test(x) && v == null) { t = x.padStart(5, '0'); continue; }
+      if (d && v == null && /^[\d.,\s]+$/.test(x) && parseDe(x) != null) { v = parseDe(x); continue; }
+      if (d && v != null && x && !note) note = x;
+    }
+    if (d && v != null) out.push({ d, t, v, note });
+    else if (i > 0 || !/[a-zäöü]/i.test(line)) fehler.push('Zeile ' + (i + 1) + ': ' + line);
+  }
+  return { out, fehler };
+}
+function csvImportDialog() {
+  const m = curMeter();
+  openSheet(`<h2>Altdaten importieren</h2>
+    <p class="dim">Je Zeile Datum und Zählerstand, z. B. aus Jahresabrechnungen:<br><span class="mono">31.12.2023;30.512,4</span><br>Optional mit Uhrzeit und Notiz. Trennzeichen ; oder Tab. Doppelte werden erkannt.</p>
+    <textarea id="csvT" class="i mono" rows="8" placeholder="31.12.2023;30512,4&#10;31.12.2024;33850&#10;31.12.2025;37011,2"></textarea>
+    <div class="row" style="margin:10px 0"><button class="btn" data-x="file">📄 CSV-Datei wählen</button><button class="btn" data-x="check">Prüfen</button></div>
+    <div id="csvR"></div>
+    <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn p" data-x="go" id="csvGo" disabled>Importieren</button></div>`, (sh, root) => {
+    let parsed = null;
+    const check = () => {
+      parsed = parseCsv($('#csvT', sh).value);
+      const existing = mergedReadings(m.id).map((r) => ({ t: Date.parse(r.ts), v: +r.value }));
+      parsed.out.forEach((x) => { x.ts = fromLocal(x.d, x.t); x.dup = existing.some((e) => Math.abs(e.t - x.ts) < 60000 && Math.abs(e.v - x.v) < 0.0005); });
+      const neu = parsed.out.filter((x) => !x.dup);
+      $('#csvR', sh).innerHTML = `<p><b>${neu.length}</b> neue Ablesung(en)${parsed.out.length - neu.length ? ', ' + (parsed.out.length - neu.length) + ' schon vorhanden' : ''}${parsed.fehler.length ? ', <span class="pos">' + parsed.fehler.length + ' Zeile(n) nicht lesbar</span>' : ''}.</p>
+        <table class="t">${parsed.out.slice(0, 50).map((x) => `<tr class="${x.dup ? 'muted' : ''}"><td>${fmtKey(x.d)} ${x.t}</td><td>${fmtN(x.v, 1)}</td><td>${x.dup ? 'doppelt' : 'neu'}</td></tr>`).join('')}</table>
+        ${parsed.fehler.slice(0, 5).map((f) => '<div class="warn">' + esc(f) + '</div>').join('')}`;
+      $('#csvGo', sh).disabled = !neu.length;
+    };
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]');
+      if (!b) return;
+      if (b.dataset.x === 'cancel') closeSheet(root);
+      if (b.dataset.x === 'check') check();
+      if (b.dataset.x === 'file') { const inp = $('#inCsv'); inp.value = ''; inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const buf = await f.arrayBuffer(); let txt = new TextDecoder('utf-8').decode(buf); if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf); $('#csvT', sh).value = txt; check(); }; inp.click(); }
+      if (b.dataset.x === 'go') {
+        const neu = parsed.out.filter((x) => !x.dup);
+        const liste = neu.map((x) => ({ id: uid(), meter_id: m.id, ts: new Date(x.ts).toISOString(), value: x.v, kind: 'normal', source: 'import', note: x.note || 'Altdaten', created_by: S.person, created_at: new Date().toISOString() }));
+        closeSheet(root);
+        for (let i = 0; i < liste.length; i += 400) await enqueue({ typ: 'import', liste: liste.slice(i, i + 400) });
+        toast(liste.length + ' Ablesungen importiert');
+      }
+    });
+  });
+}
+function todayFile() { const p = bParts(Date.now()); return String(p.d).padStart(2, '0') + '-' + String(p.m).padStart(2, '0') + '-' + p.y; }
+function csvNum(x) { return x == null || x === '' ? '' : String(+x).replace('.', ','); }
+function csvCell(s) { s = String(s ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function buildCsv(data) {
+  const mm = Object.fromEntries(data.zaehler.map((z) => [z.id, z.name]));
+  const rows = [['Zähler', 'Datum', 'Uhrzeit', 'Zählerstand (kWh)', 'Art', 'Endstand alter Zähler (kWh)', 'Quelle', 'KI-Wert', 'Notiz', 'Erfasst von', 'Erfasst am']];
+  for (const r of data.ablesungen.slice().sort((a, b) => (a.meter_id + a.ts < b.meter_id + b.ts ? -1 : 1))) {
+    const t = Date.parse(r.ts);
+    rows.push([mm[r.meter_id] || r.meter_id, fmtDate(t), fmtTime(t), csvNum(r.value), r.kind === 'wechsel' ? 'Zählerwechsel' : 'Ablesung', csvNum(r.old_value), r.source, csvNum(r.ai_value), r.note || '', r.created_by || '', r.created_at ? fmtDT(Date.parse(r.created_at)) : '']);
+  }
+  return '﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\r\n') + '\r\n';
+}
+async function buildBackup(progress) {
+  await refresh();
+  const d = S.data;
+  const fotos = [];
+  const mitFoto = d.ablesungen.filter((r) => r.photo_id);
+  for (const [i, r] of mitFoto.entries()) {
+    progress && progress('Fotos ' + (i + 1) + ' von ' + mitFoto.length);
+    try { fotos.push(await api('GET', '/fotos/' + encodeURIComponent(r.photo_id))); } catch (e) { if (e.status !== 404) throw e; }
+  }
+  return { app: 'stromzaehler', format: 1, erstellt: new Date().toISOString(), erstellt_von: S.person, zaehler: d.zaehler, ablesungen: d.ablesungen, tarife: d.tarife, einstellungen: d.einstellungen, fotos };
+}
+async function exportDialog() {
+  if (S.queue.length) { toast('Bitte erst hochladen – ' + pendingCount() + ' Änderung(en) warten noch.'); sync(); return; }
+  openSheet(`<h2>Sicherung erstellen</h2><p id="exP"><span class="spin"></span> Daten werden gesammelt …</p><div id="exB"></div>`, async (sh, root) => {
+    try {
+      const b = await buildBackup((t) => { $('#exP', sh).innerHTML = '<span class="spin"></span> ' + esc(t); });
+      const name = 'Stromzaehler_Sicherung_' + todayFile() + '.json';
+      const json = new File([JSON.stringify(b)], name, { type: 'application/json' });
+      const csv = new File([buildCsv(b)], 'Stromzaehler_Ablesungen_' + todayFile() + '.csv', { type: 'text/csv' });
+      const kb = Math.round(json.size / 1024);
+      $('#exP', sh).innerHTML = `✓ Fertig: <b>${b.ablesungen.length}</b> Ablesungen, <b>${b.fotos.length}</b> Fotos, <b>${b.tarife.length}</b> Tarife (${fmtN(kb, 0)} KB).`;
+      const canShare = navigator.canShare && navigator.canShare({ files: [json, csv] });
+      $('#exB', sh).innerHTML = `${canShare ? '<button class="btn p xl" data-x="share">📤 Teilen / in OneDrive speichern</button>' : ''}
+        <div class="row"><button class="btn" data-x="dl">⬇️ Herunterladen</button><button class="btn" data-x="close">Schließen</button></div>
+        <p class="dim">Im Teilen-Menü „OneDrive“ wählen und den Ordner für Sicherungen auswählen.</p>`;
+      const done = async () => { await api('PUT', '/einstellungen/letzte_sicherung', { value: new Date().toISOString() }).catch(() => {}); await refresh().catch(() => {}); render(); };
+      sh.addEventListener('click', async (e) => {
+        const x = e.target.closest('[data-x]'); if (!x) return;
+        if (x.dataset.x === 'close') closeSheet(root);
+        if (x.dataset.x === 'share') { try { await navigator.share({ files: [json, csv], title: name }); await done(); toast('Sicherung geteilt ✓'); closeSheet(root); } catch (err) { if (err.name !== 'AbortError') toast('Teilen nicht möglich: ' + err.message); } }
+        if (x.dataset.x === 'dl') { for (const f of [json, csv]) { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); await new Promise((r) => setTimeout(r, 400)); } await done(); toast('Heruntergeladen ✓'); }
+      });
+    } catch (e) { $('#exP', sh).innerHTML = '<div class="warn r">' + esc(e.network ? 'Für die Sicherung braucht es Netz.' : e.message) + '</div><button class="btn" data-x="close">Schließen</button>'; sh.addEventListener('click', (e2) => { if (e2.target.closest('[data-x="close"]')) closeSheet(root); }); }
+  });
+}
+async function restoreBackup(b, progress) {
+  if (!b || b.app !== 'stromzaehler' || !Array.isArray(b.ablesungen)) throw new Error('Das ist keine Stromzähler-Sicherung.');
+  const res = { zaehler: 0, neu: 0, doppelt: 0, fotos: 0, tarife: 0 };
+  for (const z of b.zaehler || []) { await api('PUT', '/zaehler/' + encodeURIComponent(z.id), z); res.zaehler++; }
+  for (const t of b.tarife || []) { await api('PUT', '/tarife/' + encodeURIComponent(t.id), t); res.tarife++; }
+  const list = b.ablesungen;
+  for (let i = 0; i < list.length; i += 400) {
+    progress && progress('Ablesungen ' + Math.min(i + 400, list.length) + ' von ' + list.length);
+    const r = await api('POST', '/ablesungen', { liste: list.slice(i, i + 400) }, 60000);
+    res.neu += r.neu; res.doppelt += r.uebersprungen;
+  }
+  for (const [i, f] of (b.fotos || []).entries()) {
+    progress && progress('Fotos ' + (i + 1) + ' von ' + b.fotos.length);
+    const r = await api('PUT', '/fotos/' + encodeURIComponent(f.id), f, 45000);
+    res.fotos += r.neu;
+  }
+  for (const e of b.einstellungen || []) if (e.key !== 'letzte_sicherung') await api('PUT', '/einstellungen/' + encodeURIComponent(e.key), { value: e.value });
+  await refresh();
+  return res;
+}
+function importBackupDialog() {
+  const inp = $('#inBackup'); inp.value = '';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    let b;
+    try { b = JSON.parse(await f.text()); } catch { toast('Datei ist keine gültige Sicherung.'); return; }
+    if (!b || b.app !== 'stromzaehler') { toast('Das ist keine Stromzähler-Sicherung.'); return; }
+    const ok = await confirmDlg(`Sicherung vom <b>${fmtDT(Date.parse(b.erstellt))}</b> wiederherstellen?<br>${b.ablesungen.length} Ablesungen, ${(b.fotos || []).length} Fotos, ${(b.tarife || []).length} Tarife.<br><span class="dim">Vorhandene Daten bleiben erhalten, doppelte Ablesungen werden übersprungen.</span>`, 'Wiederherstellen');
+    if (!ok) return;
+    openSheet('<h2>Wiederherstellen</h2><p id="rsP"><span class="spin"></span> Läuft …</p>', async (sh, root) => {
+      root.dataset.locked = '1';
+      try {
+        const r = await restoreBackup(b, (t) => { $('#rsP', sh).innerHTML = '<span class="spin"></span> ' + esc(t); });
+        $('#rsP', sh).innerHTML = `✓ Fertig: ${r.neu} Ablesungen neu, ${r.doppelt} doppelt übersprungen, ${r.fotos} Fotos, ${r.tarife} Tarife, ${r.zaehler} Zähler.<br><br><button class="btn p full" data-x="ok">OK</button>`;
+      } catch (e) { $('#rsP', sh).innerHTML = '<div class="warn r">' + esc(e.message) + '</div><button class="btn full" data-x="ok">Schließen</button>'; }
+      sh.addEventListener('click', (e) => { if (e.target.closest('[data-x="ok"]')) { closeSheet(root); S.version++; render(); } });
+    });
+  };
+  inp.click();
+}
+const DEMO_ID = 'demo-zaehler';
+async function demoAn() {
+  if (!S.online) { toast('Dafür braucht es Netz.'); return; }
+  openSheet('<h2>Demo-Daten</h2><p id="dmP"><span class="spin"></span> Werden erzeugt …</p>', async (sh, root) => {
+    root.dataset.locked = '1';
+    try {
+      await api('PUT', '/zaehler/' + DEMO_ID, { name: '***TEST*** Demo-Zähler', art: 'bezug', obis: '1.8.0', typ: 'mechanisch', stichtag: '12-31', is_demo: 1, sort: 99 });
+      const liste = genDemo(DEMO_ID, Date.now());
+      for (let i = 0; i < liste.length; i += 400) await api('POST', '/ablesungen', { liste: liste.slice(i, i + 400) }, 60000);
+      await api('PUT', '/tarife/demo-t1', { meter_id: DEMO_ID, valid_from: '2023-01-01', arbeitspreis_ct: 40.12, grundpreis_monat: 13.5, abschlag_monat: 110, note: '***TEST***' });
+      await api('PUT', '/tarife/demo-t2', { meter_id: DEMO_ID, valid_from: '2025-01-01', arbeitspreis_ct: 34.9, grundpreis_monat: 14.2, abschlag_monat: 95, note: '***TEST***' });
+      await refresh();
+      S.meterId = DEMO_ID; LS.set('meter', DEMO_ID); S.version++;
+      closeSheet(root); S.tab = 'auswertung'; render();
+      toast(liste.length + ' Demo-Ablesungen erzeugt');
+    } catch (e) { $('#dmP', sh).innerHTML = '<div class="warn r">' + esc(e.message) + '</div>'; root.dataset.locked = ''; }
+  });
+}
+async function demoAus() {
+  if (!(await confirmDlg('Alle Demo-Daten (***TEST***) löschen? Deine echten Daten bleiben unberührt.', 'Demo löschen', true))) return;
+  try {
+    await api('DELETE', '/zaehler/' + DEMO_ID);
+    S.queue = S.queue.filter((q) => !((q.reading && q.reading.meter_id === DEMO_ID) || (q.liste && q.liste[0] && q.liste[0].meter_id === DEMO_ID)));
+    await saveQueue();
+    await refresh();
+    if (S.meterId === DEMO_ID) { S.meterId = null; LS.del('meter'); }
+    S.version++; render(); toast('Demo-Daten gelöscht');
+  } catch (e) { toast(e.message); }
+}
+function icsFile() {
+  const p = bParts(Date.now());
+  const ny = p.m === 12 ? p.y + 1 : p.y, nm = p.m === 12 ? 1 : p.m + 1;
+  const st = ny + String(nm).padStart(2, '0') + '01T190000';
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const txt = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Stromzaehler//DE', 'CALSCALE:GREGORIAN',
+    'BEGIN:VTIMEZONE', 'TZID:Europe/Berlin', 'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:MESZ', 'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+    'BEGIN:STANDARD', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:MEZ', 'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD', 'END:VTIMEZONE',
+    'BEGIN:VEVENT', 'UID:stromzaehler-sicherung-monatlich', 'DTSTAMP:' + stamp, 'DTSTART;TZID=Europe/Berlin:' + st, 'DURATION:PT15M', 'RRULE:FREQ=MONTHLY;BYMONTHDAY=1',
+    'SUMMARY:Stromzähler: Sicherung erstellen', 'DESCRIPTION:App öffnen → Einstellungen → Sicherung erstellen → in OneDrive speichern.',
+    'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:Stromzähler-Sicherung', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n') + '\r\n';
+  return new File([txt], 'Stromzaehler_Erinnerung.ics', { type: 'text/calendar' });
+}
+async function icsExport() {
+  const f = icsFile();
+  if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+}
+function tarifDialog(id) {
+  const m = curMeter();
+  const t = S.data.tarife.find((x) => x.id === id) || {};
+  openSheet(`<h2>${t.id ? 'Tarif bearbeiten' : 'Neuer Tarif'}</h2>
+    <label class="f"><span>Gültig ab</span><input id="tV" type="date" class="i" value="${esc(t.valid_from || nowLocal().d)}"></label>
+    <label class="f"><span>Arbeitspreis (ct/kWh, brutto)</span><input id="tA" class="i" inputmode="decimal" value="${t.arbeitspreis_ct != null ? fmtN(t.arbeitspreis_ct, 2) : ''}"></label>
+    <label class="f"><span>Grundpreis (€/Monat, brutto)</span><input id="tG" class="i" inputmode="decimal" value="${t.grundpreis_monat != null ? fmtN(t.grundpreis_monat, 2) : ''}"></label>
+    <label class="f"><span>Abschlag (€/Monat)</span><input id="tB" class="i" inputmode="decimal" value="${t.abschlag_monat != null ? fmtN(t.abschlag_monat, 2) : ''}"></label>
+    <label class="f"><span>Notiz (z. B. Anbieter)</span><input id="tN" class="i" value="${esc(t.note || '')}"></label>
+    <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn p" data-x="save">Speichern</button></div>
+    ${t.id ? '<button class="btn d full" data-x="del" style="margin-top:12px">Tarif löschen</button>' : ''}`, (sh, root) => {
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]'); if (!b) return;
+      try {
+        if (b.dataset.x === 'cancel') closeSheet(root);
+        if (b.dataset.x === 'del' && (await confirmDlg('Tarif ab ' + fmtKey(t.valid_from) + ' löschen?', 'Löschen', true))) { await api('DELETE', '/tarife/' + encodeURIComponent(t.id)); closeSheet(root); await refresh(); render(); }
+        if (b.dataset.x === 'save') {
+          const body = { meter_id: m.id, valid_from: $('#tV', sh).value, arbeitspreis_ct: parseDe($('#tA', sh).value), grundpreis_monat: parseDe($('#tG', sh).value) || 0, abschlag_monat: parseDe($('#tB', sh).value) || 0, note: $('#tN', sh).value };
+          if (body.arbeitspreis_ct == null) { toast('Bitte Arbeitspreis eintragen.'); return; }
+          await api('PUT', '/tarife/' + encodeURIComponent(t.id || uid()), body); closeSheet(root); await refresh(); S.version++; render(); toast('Tarif gespeichert ✓');
+        }
+      } catch (err) { toast(err.network ? 'Dafür braucht es Netz.' : err.message); }
+    });
+  });
+}
+function zaehlerDialog(id) {
+  const z = meters().find((x) => x.id === id) || {};
+  const [sm, sd] = (z.stichtag || '12-31').split('-');
+  openSheet(`<h2>${z.id ? 'Zähler bearbeiten' : 'Neuer Zähler'}</h2>
+    <label class="f"><span>Name</span><input id="zN" class="i" value="${esc(z.name || '')}" placeholder="z. B. Wärmepumpe"></label>
+    <label class="f"><span>Art</span><select id="zA" class="i">${[['bezug', 'Bezug (1.8.0)'], ['einspeisung', 'Einspeisung (2.8.0)'], ['waermepumpe', 'Wärmepumpe'], ['sonstiges', 'Sonstiges']].map(([v, l]) => `<option value="${v}" ${z.art === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="f"><span>OBIS-Kennzahl</span><input id="zO" class="i mono" value="${esc(z.obis || '1.8.0')}"></label>
+    <label class="f"><span>Zählertyp</span><select id="zT" class="i"><option value="mechanisch" ${z.typ !== 'digital' ? 'selected' : ''}>Mechanischer Rollenzähler</option><option value="digital" ${z.typ === 'digital' ? 'selected' : ''}>Digital / moderne Messeinrichtung</option></select></label>
+    <label class="f"><span>Abrechnungsstichtag (Tag.Monat)</span><input id="zS" class="i" value="${sd}.${sm}." placeholder="31.12."></label>
+    <div class="row"><button class="btn" data-x="cancel">Abbrechen</button><button class="btn p" data-x="save">Speichern</button></div>
+    ${z.id && !z.is_demo ? '<button class="btn d full" data-x="del" style="margin-top:12px">Zähler mit allen Ablesungen löschen</button>' : ''}`, (sh, root) => {
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]'); if (!b) return;
+      try {
+        if (b.dataset.x === 'cancel') closeSheet(root);
+        if (b.dataset.x === 'del') {
+          const n = S.data.ablesungen.filter((a) => a.meter_id === z.id).length;
+          if (await confirmDlg('Zähler „' + esc(z.name) + '“ mit <b>' + n + ' Ablesungen</b>, Fotos und Tarifen endgültig löschen?', 'Endgültig löschen', true) && (await confirmDlg('Wirklich? Das lässt sich nur über eine Sicherung rückgängig machen.', 'Ja, löschen', true))) {
+            await api('DELETE', '/zaehler/' + encodeURIComponent(z.id)); closeSheet(root); S.meterId = null; LS.del('meter'); await refresh(); render();
+          }
+        }
+        if (b.dataset.x === 'save') {
+          const sm2 = $('#zS', sh).value.match(/^(\d{1,2})\.(\d{1,2})/);
+          const body = { ...z, name: $('#zN', sh).value.trim(), art: $('#zA', sh).value, obis: $('#zO', sh).value.trim(), typ: $('#zT', sh).value, stichtag: sm2 ? sm2[2].padStart(2, '0') + '-' + sm2[1].padStart(2, '0') : '12-31' };
+          if (!body.name) { toast('Bitte einen Namen eingeben.'); return; }
+          const nid = z.id || uid();
+          await api('PUT', '/zaehler/' + encodeURIComponent(nid), body); closeSheet(root); await refresh(); S.version++; render(); toast('Zähler gespeichert ✓');
+        }
+      } catch (err) { toast(err.network ? 'Dafür braucht es Netz.' : err.message); }
+    });
+  });
+}
+function showCode(name, code, extra = '') {
+  openSheet(`<h2>Zugangscode für ${esc(name)}</h2><p>Dieser Code wird <b>nur jetzt einmal</b> angezeigt. Gib ihn an ${esc(name)} weiter (persönlich, nicht per Mail).</p>
+    <div class="code">${esc(code)}</div>${extra}<div class="row" style="margin-top:12px"><button class="btn" data-x="copy">Kopieren</button><button class="btn p" data-x="ok">Ich habe ihn notiert</button></div>`, (sh, root) => {
+    root.dataset.locked = '1';
+    sh.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-x]'); if (!b) return;
+      if (b.dataset.x === 'copy') { try { await navigator.clipboard.writeText(code); toast('Kopiert'); } catch { toast('Kopieren nicht möglich – bitte abschreiben.'); } }
+      if (b.dataset.x === 'ok') { closeSheet(root); loadSettingsLists(); }
+    });
+  });
+}
+
+// ---------------------------------------------------------------- Aktionen
+const actions = {
+  async login() {
+    const code = $('#lgCode').value, geraet = $('#lgDev').value;
+    const apiIn = $('#lgApi') && $('#lgApi').value.trim();
+    if (apiIn && apiIn !== apiBase()) LS.set('api', apiIn);
+    const err = $('#lgErr');
+    err.classList.add('hidden');
+    try {
+      const j = await api('POST', '/anmelden', { code, geraet });
+      S.token = j.token; S.person = j.person; S.geraetId = j.geraet_id;
+      LS.set('token', j.token); LS.set('person', j.person); LS.set('geraet', j.geraet_id);
+      await sync(true);
+      toast('Angemeldet als ' + j.person);
+    } catch (e) { err.textContent = e.network ? 'Keine Verbindung zum Server. Für die Anmeldung braucht es Netz.' : e.message; err.classList.remove('hidden'); }
+  },
+  async ersterZaehler() {
+    try { await api('PUT', '/zaehler/' + uid(), { name: $('#nzName').value.trim() || 'Hauszähler', typ: $('#nzTyp').value, art: 'bezug', obis: '1.8.0', stichtag: '12-31' }); await refresh(); render(); }
+    catch (e) { toast(e.network ? 'Dafür braucht es Netz.' : e.message); }
+  },
+  tab(el) { S.tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
+  kamera() { const i = $('#inCamera'); i.value = ''; i.click(); },
+  galerie() { const i = $('#inGallery'); i.value = ''; i.click(); },
+  hand() { readingForm({ source: 'hand' }); },
+  wechsel() { readingForm({ source: 'hand', wechsel: true }); },
+  csvImport() { csvImportDialog(); },
+  edit(el) { const r = model().readings.find((x) => x.id === el.dataset.id); if (r) readingForm({ edit: r }); },
+  year(el) { const y = +el.dataset.y; S.hiddenYears.has(y) ? S.hiddenYears.delete(y) : S.hiddenYears.add(y); LS.set('hiddenYears', [...S.hiddenYears]); render(); },
+  cmp(el) { S.cmpMode = el.dataset.m; render(); },
+  retry() { S.queue.forEach((q) => delete q.fehler); saveQueue(); sync(true); },
+  syncNow() { sync(true); },
+  export() { exportDialog(); },
+  importBackup() { importBackupDialog(); },
+  ics() { icsExport(); },
+  tarif(el) { tarifDialog(el.dataset.id); },
+  zaehler(el) { zaehlerDialog(el.dataset.id); },
+  demoAn() { demoAn(); },
+  demoAus() { demoAus(); },
+  demoZeigen() { S.meterId = DEMO_ID; LS.set('meter', DEMO_ID); S.version++; S.tab = 'auswertung'; render(); },
+  async geraetAb(el) {
+    if (!(await confirmDlg('Gerät „' + esc(el.dataset.name) + '“ abmelden? Dort muss danach der Code neu eingegeben werden.', 'Abmelden', true))) return;
+    try { await api('DELETE', '/geraete/' + encodeURIComponent(el.dataset.id)); toast('Gerät abgemeldet'); loadSettingsLists(); } catch (e) { toast(e.message); }
+  },
+  async personNeu() {
+    openSheet(`<h2>Person hinzufügen</h2><label class="f"><span>Name (Vorname reicht)</span><input id="pN" class="i" maxlength="40"></label><div class="row"><button class="btn" data-x="c">Abbrechen</button><button class="btn p" data-x="s">Code erzeugen</button></div>`, (sh, root) => {
+      sh.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-x]'); if (!b) return;
+        if (b.dataset.x === 'c') return closeSheet(root);
+        try { const j = await api('POST', '/personen', { name: $('#pN', sh).value }); closeSheet(root); showCode(j.name, j.code); } catch (err) { toast(err.message); }
+      });
+    });
+  },
+  async neuerCode(el) {
+    if (!(await confirmDlg('Neuen Code für ' + esc(el.dataset.name) + ' erzeugen? Der alte Code wird ungültig und alle Geräte dieser Person (außer diesem) werden abgemeldet.', 'Neuer Code', true))) return;
+    try { const j = await api('POST', '/personen/' + el.dataset.id + '/neuer-code'); showCode(el.dataset.name, j.code, '<p class="dim">' + j.geraete_abgemeldet + ' Gerät(e) abgemeldet.</p>'); } catch (e) { toast(e.message); }
+  },
+  async logout() {
+    if (!(await confirmDlg('Dieses Gerät abmelden?' + (S.queue.length ? ' <b>Achtung: ' + pendingCount() + ' Änderung(en) sind noch nicht hochgeladen und gehen verloren.</b>' : ''), 'Abmelden', true))) return;
+    try { await api('POST', '/abmelden'); } catch {}
+    S.token = null; LS.del('token'); S.queue = []; await saveQueue(); S.data = { zaehler: [], ablesungen: [], tarife: [], einstellungen: [] }; await saveCache(); render();
+  },
+};
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab]');
+  if (t && t.closest('#tabs')) { S.tab = t.dataset.tab; render(); window.scrollTo(0, 0); return; }
+  const a = e.target.closest('[data-act]');
+  if (a && actions[a.dataset.act]) actions[a.dataset.act](a);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'lgCode') actions.login(); });
+$('#meterSel').addEventListener('change', (e) => { S.meterId = e.target.value; LS.set('meter', S.meterId); S.version++; render(); });
+$('#inCamera').addEventListener('change', (e) => onPhoto(e.target.files[0]));
+$('#inGallery').addEventListener('change', (e) => onPhoto(e.target.files[0]));
+window.addEventListener('online', () => { S.online = true; sync(); });
+window.addEventListener('offline', () => { S.online = false; renderStatus(); render(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+setInterval(() => { if (document.visibilityState === 'visible' && (S.queue.length || Date.now() - (S.lastSync || 0) > 5 * 60000)) sync(); }, 60000);
+
+const APP_VERSION = '1.0.0';
+(async function init() {
+  const [cache, q] = await Promise.all([idb.get('daten'), idb.get('queue')]);
+  if (cache) S.data = cache;
+  if (Array.isArray(q)) S.queue = q;
+  S.version++;
+  render();
+  if (S.token) sync();
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  window.addEventListener('load', () => { if (S.tab === 'auswertung') render(); });
+})();
+</script>
+</body>
+</html>
