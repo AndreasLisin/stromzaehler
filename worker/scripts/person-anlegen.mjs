@@ -26,9 +26,10 @@ ON CONFLICT(name) DO UPDATE SET code_hash=excluded.code_hash, active=1;\n`;
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'sz-'));
 const file = path.join(tmp, 'person.sql');
 writeFileSync(file, sql);
-const r = spawnSync('npx', ['--yes', 'wrangler@4.159.0', 'd1', 'execute', 'stromzaehler', '--remote', '--file', process.platform === 'win32' ? '"' + file + '"' : file, '--yes'], { stdio: ['inherit', 'pipe', 'inherit'], shell: process.platform === 'win32', encoding: 'utf8', env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
+const r = spawnSync('npx', ['--yes', 'wrangler@4.159.0', 'd1', 'execute', 'stromzaehler', '--remote', '--file', process.platform === 'win32' ? '"' + file + '"' : file, '--yes'], { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
+// stdio 'inherit': wrangler sieht ein echtes Terminal und kann bei Bedarf selbst die Browser-Anmeldung starten
 try { unlinkSync(file); } catch {}
-if (r.status !== 0) { console.error(r.stdout || ''); console.error('Fehler beim Schreiben in die Datenbank.'); process.exit(1); }
+if (r.status !== 0) { console.error('Fehler beim Schreiben in die Datenbank (Meldung siehe oben).'); process.exit(1); }
 
 console.log(`
 ┌──────────────────────────────────────────────┐

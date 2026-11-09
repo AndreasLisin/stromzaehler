@@ -438,7 +438,7 @@ function genDemo(meterId, nowMs) {
 // ==CALC-END==
 
 // ---------------------------------------------------------------- Speicher & API
-const DEFAULT_API = 'https://stromzaehler-api.DEIN-NAME.workers.dev'; // nach dem Veröffentlichen eintragen (keine Geheimnisse!)
+const DEFAULT_API = 'https://stromzaehler-api.stromzaehler-api.workers.dev'; // nach dem Veröffentlichen eintragen (keine Geheimnisse!)
 const LS = {
   get(k, d = null) { try { const v = localStorage.getItem('sz_' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('sz_' + k, JSON.stringify(v)); } catch {} },
